@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+	<AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
+	<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+	<ImplicitUsings>disable</ImplicitUsings>
+	<RootNamespace>Keyfactor.Extensions.Orchestrator.AxisIPCamera</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Keyfactor.Logging" Version="1.1.1" />
+    <PackageReference Include="Keyfactor.Orchestrators.IOrchestratorJobExtensions" Version="1.0.0" />
+	
+	<None Update="manifest.json">
+		<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
+	
+	<PackageReference Include="RestSharp" Version="112.1.0" />
+  </ItemGroup>
+
+</Project>
