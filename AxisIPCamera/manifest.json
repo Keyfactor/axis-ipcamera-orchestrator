@@ -1,0 +1,14 @@
+﻿{
+  "extensions": {
+    "Keyfactor.Orchestrators.Extensions.IOrchestratorJobExtension": {
+      "CertStores.AxisIPCamera.Inventory": {
+        "assemblypath": "AxisIPCamera.dll",
+        "TypeFullName": "Keyfactor.Extensions.Orchestrator.AxisIPCamera.Inventory"
+      },
+      "CertStores.AxisIPCamera.Reenrollment": {
+        "assemblypath": "AxisIPCamera.dll",
+        "TypeFullName": "Keyfactor.Extensions.Orchestrator.AxisIPCamera.Reenrollment"
+      }
+    }
+  }
+}
