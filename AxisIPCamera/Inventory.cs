@@ -82,8 +82,22 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 CertificateData data2 = client.ListCertificates();
                 
                 // Lookup the certificate used for HTTPS
+                string httpAlias = client.GetBinding(Constants.CertificateUsage.Https);
                 
-                
+                // Set the binding on the certificate object if the aliases match
+                foreach (Certificate c in data2.Certs)
+                {
+                    if (c.Alias.Equals(httpAlias))
+                    {
+                        c.Binding = Constants.CertificateUsage.Https;
+                    }
+                    else
+                    {
+                        // Reset the other certs
+                        c.Binding = Constants.CertificateUsage.Unknown;
+                    }
+                }
+
                 inventoryItems.AddRange(data1.CACerts.Select(
                     c =>
                     {
@@ -183,11 +197,18 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             }
         }
         
+        //TODO: Add parameters for other binding aliases
         private CurrentInventoryItem BuildInventoryItem(Certificate cert)
         {
             try
             {
                 _logger.MethodEntry();
+                
+                // Get the cert usage as a string
+                string certUsageString = GetCertUsageAsString(cert.Binding);
+
+                Dictionary<string, object> parameters = new Dictionary<string, object>();
+                parameters.Add("CertUsage",certUsageString);
 
                 var certList = new List<string>();
                 certList.Add(cert.CertAsPem);
@@ -197,7 +218,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     Certificates =  certList,
                     ItemStatus = OrchestratorInventoryItemStatus.Unknown,
                     PrivateKeyEntry = true, // Client certs will have private keys on the camera
-                    UseChainLevel = false // Will only ever have 1 cert level
+                    UseChainLevel = false, // Will only ever have 1 cert level
+                    Parameters = parameters
                 };
 
                 _logger.MethodExit();
@@ -208,6 +230,39 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 _logger.LogError($"Error Occurred in Inventory.BuildInventoryItem for Certificates: {LogHandler.FlattenException(e)}");
                 throw;
             }
+        }
+
+        private string GetCertUsageAsString(Constants.CertificateUsage certUsageEnum)
+        {
+            Constants.CertificateUsage target = certUsageEnum;
+            string certUsageString = "";
+            switch (target)
+            {
+                    case Constants.CertificateUsage.Https:
+                    {
+                        certUsageString = "HTTPS";
+                        break;
+                    }
+                    case Constants.CertificateUsage.MQTT:
+                    {
+                        certUsageString = "MQTT";
+                        break;
+                    }
+                    case Constants.CertificateUsage.IEEE:
+                    {
+                        certUsageString = "IEEE802.X";
+                        break;
+                    }
+                    case Constants.CertificateUsage.Unknown:
+                    {
+                        certUsageString = "None";
+                        break;
+                    }
+                default:
+                    break;
+            }
+
+            return certUsageString;
         }
     }
 }

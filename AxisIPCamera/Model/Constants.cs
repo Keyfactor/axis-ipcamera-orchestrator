@@ -7,7 +7,8 @@
             Https,
             IEEE,
             MQTT,
-            Trust
+            Trust,
+            Unknown
         }
 
         // Note: There may be more keystore types depending on the Axis camera model

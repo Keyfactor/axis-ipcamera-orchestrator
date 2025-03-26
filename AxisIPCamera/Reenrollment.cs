@@ -146,6 +146,14 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 _logger.LogTrace($"Replacing cert '{alias}' with the following cert: " + pemCert);
                 
                 client.ReplaceCertificate(alias,pemCert);
+                
+                // Update the binding on the camera
+                // TODO: Add logic to change this based on the binding type
+                client.SetCertUsageBinding(alias, Constants.CertificateUsage.Https);
+
+
+                // Send the binding information back to Command
+
 
             }
             catch (Exception ex)
