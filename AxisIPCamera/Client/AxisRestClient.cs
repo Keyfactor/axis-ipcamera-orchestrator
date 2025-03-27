@@ -224,6 +224,27 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 throw new Exception(e.Message);
             }
         }
+        
+        public void AddCertificate(string alias, string pemCert)
+        {
+            try
+            {
+                Logger.MethodEntry();
+
+                // Compose the cert body
+                string jsonBody = @"{""data"":{""alias"":""" + alias + @""",""certificate"":""" + pemCert + @"""}}";
+                Logger.LogDebug($"Pem cert JSON body: {jsonBody}");
+
+                HTTP_PostAddCACertificate(alias, jsonBody);
+
+                Logger.MethodExit();
+            }
+            catch (Exception e)
+            {
+                Logger.LogError("Error completing certificate add: " + LogHandler.FlattenException(e));
+                throw new Exception(e.Message);
+            }
+        }
 
         public void SetCertUsageBinding(string alias, Constants.CertificateUsage certUsage)
         {
@@ -560,6 +581,58 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             {
                 Logger.LogError(
                     $"Error Occured in AxisRestClient.HTTP_PostReplaceCertificate: {LogHandler.FlattenException(e)}");
+                throw;
+            }
+        }
+        
+        /**
+         * HTTP POST: Replace certificate but keep private key
+         */
+        private void HTTP_PostAddCACertificate(string alias, string jsonBody)
+        {
+            try
+            {
+                Logger.MethodEntry();
+                if (_restClient is null)
+                {
+                    throw new Exception("Axis IP Camera Rest Client was not initialized");
+                }
+                //_restClient ??= new RestClient(_baseRestClientUrl);
+
+                var resource = $"{ApiEntryPoint}/ca_certificates";
+                var request = new RestRequest(resource, Method.Post);
+                request.RequestFormat = DataFormat.Json;
+
+                Logger.LogTrace($"Rest Request: {_restClient.BuildUri(request)}");
+
+                // Add the certificate body
+                request.AddJsonBody(jsonBody);
+
+                //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
+                var httpResponse = _restClient.Execute(request);
+                if (httpResponse is null)
+                {
+                    throw new InvalidOperationException();
+                }
+
+                Logger.LogTrace($"Rest Response: {httpResponse.Content}");
+
+                ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
+                if (apiResponse.Status == Constants.Status.Success)
+                {
+                    // TODO: Should I do something here?
+                }
+                else
+                {
+                    ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
+                    throw new Exception($"{error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
+                }
+
+            }
+            catch (Exception e)
+            {
+                Logger.LogError(
+                    $"Error Occured in AxisRestClient.HTTP_PostAddCACertificate: {LogHandler.FlattenException(e)}");
                 throw;
             }
         }

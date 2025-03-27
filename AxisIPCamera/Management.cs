@@ -1,15 +1,28 @@
 ﻿using System;
-
+using System.Text;
+using System.Linq;
 using Keyfactor.Logging;
 using Keyfactor.Orchestrators.Extensions;
 using Keyfactor.Orchestrators.Common.Enums;
 
 using Microsoft.Extensions.Logging;
 
+using Newtonsoft.Json;
+
+using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client;
+using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
+
 namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
 {
     public class Management : IManagementJobExtension
     {
+        private readonly ILogger _logger;
+        
+        public Management()
+        {
+            _logger = LogHandler.GetClassLogger<Management>();
+        }
+        
         //Necessary to implement IManagementJobExtension but not used.  Leave as empty string.
         public string ExtensionName => "";
 
@@ -35,11 +48,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
 
 
             //NLog Logging to c:\CMS\Logs\CMS_Agent_Log.txt
-            ILogger logger = LogHandler.GetClassLogger(this.GetType());
-            logger.LogDebug($"Begin Management...");
 
             try
             {
+                _logger.MethodEntry();
+                _logger.LogDebug($"Begin Management...");
+                
                 //Management jobs, unlike Discovery, Inventory, and Reenrollment jobs can have 3 different purposes:
                 switch (config.OperationType)
                 {
@@ -49,18 +63,58 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         // 1) Connect to the orchestrated server (config.CertificateStoreDetails.ClientMachine) containing the certificate store
                         // 2) Custom logic to add certificate to certificate store (config.CertificateStoreDetails.StorePath) possibly using alias as an identifier if applicable (config.JobCertificate.Alias).  Use alias and overwrite flag (config.Overwrite)
                         //     to determine if job should overwrite an existing certificate in the store, for example a renewal.
+                        
+                        // Retrieve management config from Command
+                        _logger.LogDebug($"Management Config {JsonConvert.SerializeObject(config)}");
+                        _logger.LogDebug($"Client Machine: {config.CertificateStoreDetails.ClientMachine}");
+                        
+                        // Create client to connect to device
+                        _logger.LogTrace("Creating Api Rest Client...");
+                        var client = new AxisRestClient(config, config.CertificateStoreDetails);
+                        _logger.LogTrace("Api Rest Client Created...");
+                        
+                        // Get needed information from config
+                        string alias = config.JobCertificate.Alias;
+                        bool overwrite = config.Overwrite;
+                        string certBase64Der = config.JobCertificate.Contents;
+
+                        _logger.LogDebug($"Certificate contents:{certBase64Der}");
+                        
+                        // TODO: Add logic to distinguish between CA cert and end entity certs
+                        
+                        // TODO: Add logic to handle overwrite flag
+
+                        // Build PEM content
+                        // TODO: Add this and the logic in reenrollment to client class (consolidate)
+                        string formattedDer = InsertLineBreaks(certBase64Der, 64);
+                        _logger.LogDebug(($"Formatted certificate contents: {formattedDer}"));
+                        
+                        StringBuilder pemBuilder = new StringBuilder();
+                        pemBuilder.Append(@"-----BEGIN CERTIFICATE-----\n");
+                        var noLineBreaks = formattedDer.Replace("\n",@"\n");
+                        pemBuilder.Append(noLineBreaks);
+                        pemBuilder.Append(@"\n-----END CERTIFICATE-----");
+                        var pemCert = pemBuilder.ToString();
+                        
+                        // Add certificate with alias to the device
+                        client.AddCertificate(alias,pemCert);
+                        
+                        
+                        
                         break;
                     case CertStoreOperationType.Remove:
                         //OperationType == Remove - Delete a certificate from the certificate store passed in the config object
                         //Code logic to:
                         // 1) Connect to the orchestrated server (config.CertificateStoreDetails.ClientMachine) containing the certificate store
                         // 2) Custom logic to remove the certificate in a certificate store (config.CertificateStoreDetails.StorePath), possibly using alias (config.JobCertificate.Alias) or certificate thumbprint to identify the certificate (implementation dependent)
+                        // TODO: This is not supported operation
                         break;
                     case CertStoreOperationType.Create:
                         //OperationType == Create - Create an empty certificate store in the provided location
                         //Code logic to:
                         // 1) Connect to the orchestrated server (config.CertificateStoreDetails.ClientMachine) where the certificate store (config.CertificateStoreDetails.StorePath) will be located
                         // 2) Custom logic to first check if the store already exists and add it if not.  If it already exists, implementation dependent as to how to handle - error, warning, success
+                        // TODO: This is not a supported operation
                         break;
                     default:
                         //Invalid OperationType.  Return error.  Should never happen though
@@ -75,6 +129,32 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
 
             //Status: 2=Success, 3=Warning, 4=Error
             return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Success, JobHistoryId = config.JobHistoryId };
+        }
+        
+        private static string InsertLineBreaks(string input, int lineLength)
+        {
+            int length = input.Length;
+            int lines = (length + lineLength - 1) / lineLength; // Calculate the number of lines needed
+            char[] result = new char[length + lines - 1]; // Extra space for new line characters
+
+            int inputIndex = 0;
+            int resultIndex = 0;
+
+            for (int i = 0; i < lines; i++)
+            {
+                int remainingChars = Math.Min(lineLength, length - inputIndex);
+                input.Substring(inputIndex, remainingChars).CopyTo(0, result, resultIndex, remainingChars);
+                inputIndex += remainingChars;
+                resultIndex += remainingChars;
+
+                // Add a new line after every 64 characters except for the last line
+                if (i < lines - 1)
+                {
+                    result[resultIndex++] = '\n';
+                }
+            }
+
+            return new string(result);
         }
     }
 }

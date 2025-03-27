@@ -8,6 +8,10 @@
       "CertStores.AxisIPCamera.Reenrollment": {
         "assemblypath": "AxisIPCamera.dll",
         "TypeFullName": "Keyfactor.Extensions.Orchestrator.AxisIPCamera.Reenrollment"
+      },
+      "CertStores.AxisIPCamera.Management": {
+        "assemblypath": "AxisIPCamera.dll",
+        "TypeFullName": "Keyfactor.Extensions.Orchestrator.AxisIPCamera.Management"
       }
     }
   }
