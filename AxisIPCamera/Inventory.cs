@@ -81,11 +81,30 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 // Perform cert inventory
                 CertificateData data2 = client.ListCertificates();
                 
+                // Get the default keystore
+                Constants.Keystore defaultKeystore = client.GetDefaultKeystore();
+                string defaultKeystoreString = Enum.GetName(typeof(Constants.Keystore), defaultKeystore);
+                _logger.LogDebug($"Inventory - Default keystore: {defaultKeystoreString}");
+                
+                // Create new list of client certs that are only tied to the default keystore
+                CertificateData data2DefKey = new CertificateData
+                {
+                    Status = Constants.Status.Success,
+                    Certs = new List<Certificate>()
+                };
+                foreach (Certificate cert in data2.Certs)
+                {
+                    if (cert.Keystore == defaultKeystore)
+                    {
+                        data2DefKey.Certs.Add(cert);
+                    }
+                }
+                
                 // Lookup the certificate used for HTTPS
                 string httpAlias = client.GetBinding(Constants.CertificateUsage.Https);
                 
-                // Set the binding on the certificate object if the aliases match
-                foreach (Certificate c in data2.Certs)
+                // Set the binding on the client certificates object if the aliases match
+                foreach (Certificate c in data2DefKey.Certs)
                 {
                     if (c.Alias.Equals(httpAlias))
                     {
@@ -116,7 +135,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         }
                     }).Where(item => item?.Certificates != null).ToList());
                 
-                inventoryItems.AddRange(data2.Certs.Select(
+                inventoryItems.AddRange(data2DefKey.Certs.Select(
                     c =>
                     {
                         try
@@ -146,7 +165,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             catch (Exception ex)
             {
                 //Status: 2=Success, 3=Warning, 4=Error
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = "Custom message you want to show to show up as the error message in Job History in KF Command" };
+                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Inventory Job Failed During Inventory Item Creation: {ex.Message}" };
             }
 
             try
@@ -162,7 +181,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             {
                 // NOTE: if the cause of the submitInventory.Invoke exception is a communication issue between the Orchestrator server and the Command server, the job status returned here
                 //  may not be reflected in Keyfactor Command.
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = "Custom message you want to show to show up as the error message in Job History in KF Command" };
+                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Inventory Job Failed During Inventory Item Submission: {ex.Message}" };
             }
         }
 
