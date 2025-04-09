@@ -2,13 +2,22 @@
 {
     public static class Constants
     {
+        // This is the Name of the Entry Parameter used to identify the certificate usage for each certificate on the camera
+        public static string CertUsageParamName = "CertUsage";
+        
+        // This is the XML tag identifier for the cert alias bound to the TLS web server on the camera
+        public static string HttpsAliasTagName = "acert:Id";
+        
+        // This is the XML tag identifier for the cert alias bound to the IEEE802.X network access control on the camera
+        public static string IEEEAliasTagName = "tt:CertificateID";
+        
         public enum CertificateUsage
         {
             Https,
             IEEE,
             MQTT,
             Trust,
-            Unknown
+            None
         }
 
         // Note: There may be more keystore types depending on the Axis camera model

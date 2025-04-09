@@ -70,7 +70,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         
                         // Create client to connect to device
                         _logger.LogTrace("Creating Api Rest Client...");
-                        var client = new AxisRestClient(config, config.CertificateStoreDetails);
+                        var client = new AxisHttpClient(config, config.CertificateStoreDetails);
                         _logger.LogTrace("Api Rest Client Created...");
                         
                         // Get needed information from config
