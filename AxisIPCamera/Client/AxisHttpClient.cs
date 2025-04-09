@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
 using System.Runtime.ConstrainedExecution;
 using Microsoft.Extensions.Logging;
 using System.Threading;
@@ -15,49 +17,55 @@ using System.Xml;
 
 namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 {
-    public class AxisRestClient
+    public class AxisHttpClient
     {
         private const string ApiEntryPoint = "/config/rest/cert/v1beta";
 
         private readonly string _baseRestClientUrl;
-        private readonly string _username;
-        private readonly string _password;
-        private RestClient _restClient;
+
+        private readonly RestClient _httpClient;
         private ILogger Logger { get; }
 
-        public AxisRestClient(JobConfiguration config, CertificateStore store)
+        public AxisHttpClient(JobConfiguration config, CertificateStore store)
         {
-            // TODO: Do a null check on the Rest client
             try
             {
-                Logger = LogHandler.GetClassLogger<AxisRestClient>();
-
+                Logger = LogHandler.GetClassLogger<AxisHttpClient>();
                 Logger.MethodEntry();
-                Logger.LogTrace("Initializing Axis IP Camera Rest Client");
 
-                // TODO: Need to consider onboarding of camera
+                Logger.LogTrace("Initializing Axis IP Camera HTTP Client");
+
                 _baseRestClientUrl =
                     (config.UseSSL) ? $"https://{store.ClientMachine}" : $"http://{store.ClientMachine}";
-                //_baseRestClientUrl = $"https://{store.ClientMachine}";
-                _username = config.ServerUsername;
-                _password = config.ServerPassword;
 
-                Logger.LogDebug($"Base Rest Client URL: {_baseRestClientUrl}");
+                // TODO: Need to consider onboarding of camera
+                Logger.LogDebug($"Base HTTP Client URL: {_baseRestClientUrl}");
 
-                // Initialize a REST client with the Basic Auth username and password credentials
-                Logger.LogDebug("Adding Basic Auth Credentials to the client options");
-                var options = new RestClientOptions(_baseRestClientUrl)
-                {
-                    Authenticator = new HttpBasicAuthenticator(_username, _password)
-                };
+                // Initialize HTTP client options with the base URL
+                var options = new RestClientOptions(_baseRestClientUrl);
 
-                Logger.LogDebug("Turning off SSL validation --- FOR TESTING ONLY");
+                // Add Basic Auth username and password credentials
+                Logger.LogTrace("Adding Basic Auth Credentials to the HTTP client options...");
+
+                // TODO: Do we want to remove this log statement in PRODUCTION?
+                Logger.LogDebug($"Username: {config.ServerUsername}, Password: {config.ServerPassword}");
+                options.Authenticator = new HttpBasicAuthenticator(config.ServerUsername, config.ServerPassword);
+
+                // Add SSL validation
+                Logger.LogTrace("Checking for SSL validation...");
+                Logger.LogDebug($"Use SSL: {config.UseSSL}");
+
+                Logger.LogTrace("Turning off SSL validation --- FOR TESTING ONLY");
+
+                // TODO: Enable this flag in PRODUCTION
+                //if (config.UseSSL)
+                //{
                 options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
+                //}
 
-                Logger.LogDebug($"Username: {_username}, Password: {_password}");
-                _restClient = new RestClient(options);
+                _httpClient = new RestClient(options);
 
-                Logger.LogTrace("Completed Initialization of Axis IP Camera Rest Client");
+                Logger.LogTrace("Completed Initialization of Axis IP Camera HTTP Client");
 
                 Logger.MethodExit();
             }
@@ -71,9 +79,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         // Business Logic for Orchestrator Jobs
 
         /// <summary>
-        /// Gathers all the CA certificates on the device 
+        /// Retrieves all the CA certificates on the device. 
         /// </summary>
-        /// <returns></returns>
+        /// <returns>CACertificateData object</returns>
         public CACertificateData ListCACertificates()
         {
             var certsFound = new CACertificateData();
@@ -81,28 +89,49 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             try
             {
                 Logger.MethodEntry();
-                certsFound = HTTP_GetCACertificates();
 
-            }
-            /*catch (ApigeeException ex1)
-            {
-                Logger.LogError("Error completing certificate inventory: " + LogHandler.FlattenException(ex1));
-                throw new Exception(ex1.Message);
-            }*/
-            catch (Exception ex2)
-            {
-                Logger.LogError("Error completing CA certificate inventory: " + LogHandler.FlattenException(ex2));
-                throw new Exception(ex2.Message);
-            }
+                var getCACertsResource = $"{ApiEntryPoint}/ca_certificates";
+                var httpResponse = ExecuteHttp(getCACertsResource, Method.Get);
 
-            Logger.MethodExit();
-            return certsFound;
+                // Decode the HTTP response if failed
+                if (!httpResponse.IsSuccessful)
+                {
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHTTPStatus(httpResponse)}");
+                    throw new Exception($"HTTP Request unsuccessful. Refer to logs for more detailed information.");
+                }
+                // Decode the API response when HTTP response is successful
+                else
+                {
+                    if (string.IsNullOrEmpty(httpResponse.Content))
+                    {
+                        throw new Exception("No content returned from HTTP Response");
+                    }
+
+                    ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
+                    if (apiResponse.Status == Constants.Status.Success)
+                    {
+                        Logger.MethodExit();
+                        return JsonConvert.DeserializeObject<CACertificateData>(httpResponse.Content);
+                    }
+                    else
+                    {
+                        ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
+                        throw new Exception(
+                            $"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.LogError("Error retrieving CA certificates on device: " + LogHandler.FlattenException(e));
+                throw new Exception(e.Message);
+            }
         }
 
         /// <summary>
-        /// Gathers all the certificates on the device 
+        /// Gathers all the client certificates on the device.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>CertificateData object</returns>
         public CertificateData ListCertificates()
         {
             var certsFound = new CertificateData();
@@ -110,41 +139,89 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             try
             {
                 Logger.MethodEntry();
-                certsFound = HTTP_GetCertificates();
 
-            }
-            /*catch (ApigeeException ex1)
-            {
-                Logger.LogError("Error completing certificate inventory: " + LogHandler.FlattenException(ex1));
-                throw new Exception(ex1.Message);
-            }*/
-            catch (Exception ex2)
-            {
-                Logger.LogError("Error completing certificate inventory: " + LogHandler.FlattenException(ex2));
-                throw new Exception(ex2.Message);
-            }
+                var getCertsResource = $"{ApiEntryPoint}/certificates";
+                var httpResponse = ExecuteHttp(getCertsResource, Method.Get);
+                
+                // Decode the HTTP response if failed
+                if (!httpResponse.IsSuccessful)
+                {
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHTTPStatus(httpResponse)}");
+                    throw new Exception($"HTTP Request unsuccessful. Refer to logs for more detailed information.");
+                }
+                // Decode the API response when HTTP response is successful
+                else
+                {
+                    if (string.IsNullOrEmpty(httpResponse.Content))
+                    {
+                        throw new Exception("No content returned from HTTP response");
+                    }
 
-            Logger.MethodExit();
-            return certsFound;
+                    ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
+                    if (apiResponse.Status == Constants.Status.Success)
+                    {
+                        Logger.MethodExit();
+                        return JsonConvert.DeserializeObject<CertificateData>(httpResponse.Content);
+                    }
+                    else
+                    {
+                        ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
+                        throw new Exception($"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code}");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.LogError("Error retrieving client certificates on device: " + LogHandler.FlattenException(e));
+                throw new Exception(e.Message);
+            }
         }
 
         /// <summary>
-        /// 
+        /// Gets the default keystore configured on the device.
         /// </summary>
+        /// <returns>Keystore Enum</returns>
         public Constants.Keystore GetDefaultKeystore()
         {
             try
             {
                 Logger.MethodEntry();
-                var defaultKeystore = HTTP_GetDefaultKeystore();
 
-                Logger.MethodExit();
+                var getDefaultKeystoreResource = $"{ApiEntryPoint}/settings/keystore";
+                var httpResponse = ExecuteHttp(getDefaultKeystoreResource, Method.Get);
+                
+                // Decode the HTTP response if failed
+                if (!httpResponse.IsSuccessful)
+                {
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHTTPStatus(httpResponse)}");
+                    throw new Exception($"HTTP Request unsuccessful. Refer to logs for more detailed information.");
+                }
+                // Decode the API response when HTTP response is successful
+                else
+                {
+                    if (string.IsNullOrEmpty(httpResponse.Content))
+                    {
+                        throw new Exception("No content returned from HTTP Response");
+                    }
 
-                return defaultKeystore.Keystore;
+                    ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
+                    if (apiResponse.Status == Constants.Status.Success)
+                    {
+                        Logger.MethodExit();
+                        return JsonConvert.DeserializeObject<KeystoreData>(httpResponse.Content).Keystore;
+                    }
+                    else
+                    {
+                        ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
+                        throw new Exception(
+                            $"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
+                    }
+                }
             }
             catch (Exception e)
             {
-                Logger.LogError("Error completing certificate reenrollment: " + LogHandler.FlattenException(e));
+                Logger.LogError("Error retrieving default keystore configuration on device: " +
+                                LogHandler.FlattenException(e));
                 throw new Exception(e.Message);
             }
         }
@@ -224,7 +301,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 throw new Exception(e.Message);
             }
         }
-        
+
         public void AddCertificate(string alias, string pemCert)
         {
             try
@@ -263,7 +340,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             }
         }
 
-        public string GetBinding(Constants.CertificateUsage certUsage)
+        public string GetCertUsageBinding(Constants.CertificateUsage certUsage)
         {
             try
             {
@@ -277,18 +354,57 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             }
             catch (Exception e)
             {
-                Logger.LogError($"Error retrieving certificate binding for {certUsage}: " +
-                                LogHandler.FlattenException(e));
+                Logger.LogError(
+                    $"Error retrieving certificate binding for {Enum.GetName(typeof(Constants.CertificateUsage), certUsage)}: " +
+                    LogHandler.FlattenException(e));
                 throw new Exception(e.Message);
             }
         }
 
+        // NEW Axis REST Calls
+        private RestResponse ExecuteHttp(string resource, Method httpMethod)
+        {
+            try
+            {
+                Logger.MethodEntry();
+
+                // Check if HTTP client was properly initialized
+                if (_httpClient is null)
+                {
+                    throw new Exception("Axis IP Camera HTTP Client was not initialized.");
+                }
+
+                var request = new RestRequest(resource, httpMethod);
+                Logger.LogDebug($"REST Request URI: {_httpClient.BuildUri(request)}");
+                Logger.LogDebug($"HTTP Method: {httpMethod.ToString()}");
+
+                Logger.LogTrace("Executing REST Request...");
+                var httpResponse = _httpClient.Execute(request);
+                if (httpResponse is null)
+                {
+                    throw new InvalidOperationException();
+                }
+
+                Logger.LogTrace("REST Request completed");
+
+                Logger.LogDebug($"REST Response: {httpResponse?.Content}");
+
+                Logger.MethodExit();
+
+                return httpResponse;
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"Error Occured in AxisRestClient.ExecuteHttp: {LogHandler.FlattenException(e)}");
+                throw;
+            }
+        }
 
         // Axis REST Calls
         /**
          * HTTP GET: Retrieve a list of CA certificates
          */
-        private CACertificateData HTTP_GetCACertificates()
+        /*private CACertificateData HTTP_GetCACertificates()
         {
             try
             {
@@ -336,7 +452,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         /**
          * HTTP GET: Retrieve a list of certificates
          */
-        private CertificateData HTTP_GetCertificates()
+        /*private CertificateData HTTP_GetCertificates()
         {
             try
             {
@@ -384,7 +500,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         /**
          * HTTP GET: Retrieve default keystore 
          */
-        private KeystoreData HTTP_GetDefaultKeystore()
+        /*private KeystoreData HTTP_GetDefaultKeystore()
         {
             try
             {
@@ -437,7 +553,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             try
             {
                 Logger.MethodEntry();
-                if (_restClient is null)
+                if (_httpClient is null)
                 {
                     throw new Exception("Axis IP Camera Rest Client was not initialized");
                 }
@@ -447,13 +563,13 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 var request = new RestRequest(resource, Method.Post);
                 request.RequestFormat = DataFormat.Json;
 
-                Logger.LogTrace($"Rest Request: {_restClient.BuildUri(request)}");
+                Logger.LogTrace($"Rest Request: {_httpClient.BuildUri(request)}");
 
                 // Add the certificate body
                 request.AddJsonBody(jsonBody);
 
                 //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _restClient.Execute(request);
+                var httpResponse = _httpClient.Execute(request);
                 if (httpResponse is null)
                 {
                     throw new InvalidOperationException();
@@ -489,7 +605,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             try
             {
                 Logger.MethodEntry();
-                if (_restClient is null)
+                if (_httpClient is null)
                 {
                     throw new Exception("Axis IP Camera Rest Client was not initialized");
                 }
@@ -499,13 +615,13 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 var request = new RestRequest(resource, Method.Post);
                 request.RequestFormat = DataFormat.Json;
 
-                Logger.LogTrace($"Rest Request: {_restClient.BuildUri(request)}");
+                Logger.LogTrace($"Rest Request: {_httpClient.BuildUri(request)}");
 
                 // Add the certificate body
                 request.AddJsonBody(jsonBody);
 
                 //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _restClient.Execute(request);
+                var httpResponse = _httpClient.Execute(request);
                 if (httpResponse is null)
                 {
                     throw new InvalidOperationException();
@@ -541,7 +657,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             try
             {
                 Logger.MethodEntry();
-                if (_restClient is null)
+                if (_httpClient is null)
                 {
                     throw new Exception("Axis IP Camera Rest Client was not initialized");
                 }
@@ -551,13 +667,13 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 var request = new RestRequest(resource, Method.Patch);
                 request.RequestFormat = DataFormat.Json;
 
-                Logger.LogTrace($"Rest Request: {_restClient.BuildUri(request)}");
+                Logger.LogTrace($"Rest Request: {_httpClient.BuildUri(request)}");
 
                 // Add the certificate body
                 request.AddJsonBody(jsonBody);
 
                 //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _restClient.Execute(request);
+                var httpResponse = _httpClient.Execute(request);
                 if (httpResponse is null)
                 {
                     throw new InvalidOperationException();
@@ -584,7 +700,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 throw;
             }
         }
-        
+
         /**
          * HTTP POST: Replace certificate but keep private key
          */
@@ -593,7 +709,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             try
             {
                 Logger.MethodEntry();
-                if (_restClient is null)
+                if (_httpClient is null)
                 {
                     throw new Exception("Axis IP Camera Rest Client was not initialized");
                 }
@@ -603,13 +719,13 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 var request = new RestRequest(resource, Method.Post);
                 request.RequestFormat = DataFormat.Json;
 
-                Logger.LogTrace($"Rest Request: {_restClient.BuildUri(request)}");
+                Logger.LogTrace($"Rest Request: {_httpClient.BuildUri(request)}");
 
                 // Add the certificate body
                 request.AddJsonBody(jsonBody);
 
                 //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _restClient.Execute(request);
+                var httpResponse = _httpClient.Execute(request);
                 if (httpResponse is null)
                 {
                     throw new InvalidOperationException();
@@ -645,7 +761,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             try
             {
                 Logger.MethodEntry();
-                if (_restClient is null)
+                if (_httpClient is null)
                 {
                     throw new Exception("Axis IP Camera Rest Client was not initialized");
                 }
@@ -655,11 +771,10 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 var request = new RestRequest(resource, Method.Post);
                 request.AddHeader("Content-Type", "application/xml");
 
-                Logger.LogTrace($"Rest Request: {_restClient.BuildUri(request)}");
+                Logger.LogTrace($"Rest Request: {_httpClient.BuildUri(request)}");
 
-                Constants.CertificateUsage target = certUsage;
                 var body = "";
-                switch (target)
+                switch (certUsage)
                 {
                     case Constants.CertificateUsage.Https:
                     {
@@ -747,7 +862,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
                 //TODO: May need to wait for reboot of camera after HTTP cert is updated
                 //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _restClient.Execute(request);
+                var httpResponse = _httpClient.Execute(request);
                 if (httpResponse is null)
                 {
                     throw new InvalidOperationException();
@@ -774,29 +889,35 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         }
 
         /**
-         * HTTP POST: Get the certificate binding for the provided certificate usage
+         * HTTP POST (SOAP): Get the certificate binding for the provided certificate usage
          */
         private string HTTP_PostGetBinding(Constants.CertificateUsage certUsage)
         {
+            string boundCertAlias = "Unknown";
+
             try
             {
-                string boundCertAlias = "Unknown";
                 Logger.MethodEntry();
-                if (_restClient is null)
+
+                Logger.LogTrace(
+                    $"Retrieving {Enum.GetName(typeof(Constants.CertificateUsage), certUsage)} cert binding");
+
+                // Check if HTTP client was properly initialized
+                if (_httpClient is null)
                 {
-                    throw new Exception("Axis IP Camera Rest Client was not initialized");
+                    throw new Exception("Axis IP Camera HTTP Client was not initialized");
                 }
-                //_restClient ??= new RestClient(_baseRestClientUrl);
 
                 var resource = $"/vapix/services";
                 var request = new RestRequest(resource, Method.Post);
                 request.AddHeader("Content-Type", "application/xml");
+                Logger.LogDebug($"SOAP Request URI: {_httpClient.BuildUri(request)}");
+                Logger.LogDebug($"HTTP Method: {Method.Post.ToString()}");
 
-                Logger.LogTrace($"Get Binding Rest Request: {_restClient.BuildUri(request)}");
+                Logger.LogTrace("Constructing request body...");
 
-                Constants.CertificateUsage target = certUsage;
                 string body = "";
-                switch (target)
+                switch (certUsage)
                 {
                     case Constants.CertificateUsage.Https:
                     {
@@ -816,38 +937,99 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                         break;
 
                     }
+                    case Constants.CertificateUsage.IEEE:
+                    {
+                        body = @"<?xml version=""1.0"" encoding=""UTF-8""?> 
+" + "\n" +
+                               @"<Envelope xmlns=""http://www.w3.org/2003/05/soap-envelope""> 
+" + "\n" +
+                               @"<Header/>
+" + "\n" +
+                               @"   <Body >
+" + "\n" +
+                               @"       <GetDot1XConfiguration xmlns=""http://www.onvif.org/ver10/device/wsdl"">
+" + "\n" +
+                               @"           <Dot1XConfigurationToken>EAPTLS_WIRED</Dot1XConfigurationToken>
+" + "\n" +
+                               @"       </GetDot1XConfiguration>
+" + "\n" +
+                               @"   </Body>
+" + "\n" +
+                               @"</Envelope>";
+                        break;
+                    }
                     default:
                         break;
                 }
 
                 request.AddParameter("application/xml", body, ParameterType.RequestBody);
 
-                var httpResponse = _restClient.Execute(request);
+                Logger.LogTrace("Executing SOAP Request...");
+                Logger.LogDebug($"SOAP Request body: {body}");
+                var httpResponse = _httpClient.Execute(request);
                 if (httpResponse is null)
                 {
                     throw new InvalidOperationException();
                 }
 
-                Logger.LogTrace($"Rest Response: {httpResponse.Content}");
+                Logger.LogTrace("SOAP Request completed");
+
+                if (string.IsNullOrEmpty(httpResponse.Content))
+                {
+                    throw new Exception("No content returned from HTTP response");
+                }
+                else
+                {
+                    Logger.LogDebug($"SOAP Response: {httpResponse.Content}");
+                }
 
                 if (httpResponse.IsSuccessful)
                 {
                     // Parse the response to retrieve the certificate alias
-                    // TODO: If this is different for the other binding types, move to within the switch
                     XmlDocument xdoc = new XmlDocument();
+                    XmlNodeList xnodes = null;
                     xdoc.LoadXml(httpResponse.Content);
 
-                    XmlNodeList elemList = xdoc.GetElementsByTagName("acert:Id");
-                    // TODO: Throw an error if there is more than 1 element 
-                    for (int i = 0; i < elemList.Count; i++)
+                    var tagName = "";
+                    if (certUsage == Constants.CertificateUsage.Https)
                     {
-                        boundCertAlias = elemList[i].InnerXml;
+                        tagName = Constants.HttpsAliasTagName;
+                    }
+                    else if (certUsage == Constants.CertificateUsage.IEEE)
+                    {
+                        tagName = Constants.IEEEAliasTagName;
+                    }
+                    else
+                    {
+                        throw new Exception("Unknown certificate usage. Unable to parse the SOAP response.");
+                    }
+
+                    // Extract the XML node identified by the tag name 
+                    xnodes = xdoc.GetElementsByTagName(tagName);
+
+                    if (xnodes is null)
+                    {
+                        throw new Exception(
+                            $"Could not locate XML tag '{tagName}' in the SOAP response. Unable to extract the certificate alias.");
+                    }
+
+                    for (int i = 0; i < xnodes.Count; i++)
+                    {
+                        if (i > 0)
+                        {
+                            throw new Exception(
+                                "More than 1 certificate alias was found in the SOAP response. This should never happen.");
+                        }
+
+                        boundCertAlias = xnodes[i].InnerXml;
                     }
                 }
                 else
                 {
                     throw new Exception($"SOAP Response {httpResponse.Content} - (Code: {httpResponse.StatusCode})");
                 }
+
+                Logger.MethodExit();
 
                 return boundCertAlias;
             }
@@ -857,6 +1039,65 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     $"Error Occured in AxisRestClient.HTTP_PostGetBinding: {LogHandler.FlattenException(e)}");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Decodes the give HTTP status code into a human-readable string.
+        /// These include some of the most common HTTP status codes.
+        /// </summary>
+        /// <param name="httpResponse"></param>
+        /// <returns>Human-readable representation of the HTTP status code</returns>
+        private string DecodeHTTPStatus(RestResponse httpResponse)
+        {
+            Logger.MethodEntry();
+            
+            Logger.LogDebug($"HTTP Response Code: {httpResponse.StatusCode}");
+            var codeString = "";
+            switch (httpResponse.StatusCode)
+            {
+                case HttpStatusCode.BadRequest:
+                {
+                    codeString = "Bad Request! (400)";
+                    break;
+                }
+                case HttpStatusCode.Unauthorized:
+                {
+                    codeString = "Unauthorized! (401)";
+                    break;
+                }
+                case HttpStatusCode.Forbidden:
+                {
+                    codeString = "Forbidden! (403)";
+                    break;
+                }
+                case HttpStatusCode.NotFound:
+                {
+                    codeString = "Not Found! (404)";
+                    break;
+                }
+                case HttpStatusCode.InternalServerError:
+                {
+                    codeString = "Internal Server Error! (500)";
+                    break;
+                }
+                default:
+                {
+                    codeString = "No response received! Possible causes: Timeouts, no network connectivity, DNS resolution failure, SSL issues, firewall configuration, etc.";
+                    if (!string.IsNullOrEmpty(httpResponse.ErrorMessage))
+                    {
+                        codeString += $"\nError message: {httpResponse.ErrorMessage}";
+                    }
+                    else if (httpResponse.ErrorException != null)
+                    {
+                        codeString += $"\nException: {httpResponse.ErrorException.Message}";
+                    }
+                    break;
+                }
+            }
+
+            Logger.MethodExit();
+            
+            return codeString;
         }
     }
 }

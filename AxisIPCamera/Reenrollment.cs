@@ -64,7 +64,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 _logger.LogDebug($"Client Machine: {config.CertificateStoreDetails.ClientMachine}");
                 
                 _logger.LogTrace("Creating Api Rest Client...");
-                var client = new AxisRestClient(config, config.CertificateStoreDetails);
+                var client = new AxisHttpClient(config, config.CertificateStoreDetails);
                 _logger.LogTrace("Api Rest Client Created...");
 
                 foreach (var itm in config.JobProperties)
@@ -83,7 +83,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 string alias = config.Alias;
                 string subject = config.JobProperties["subjectText"].ToString();
                 // This is actually a property on the config bool overwrite = Convert.ToBoolean(config.JobProperties["Overwrite"]);
-                string certUsage = config.JobProperties["CertUsage"].ToString();
+                string certUsage = config.JobProperties[Constants.CertUsageParamName].ToString();
                 string keyAlgorithm = config.JobProperties["keyType"].ToString();
                 string keySize = config.JobProperties["keySize"].ToString();
                 
