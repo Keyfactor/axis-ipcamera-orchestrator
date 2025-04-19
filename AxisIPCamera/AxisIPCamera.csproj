@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BouncyCastle.NetCore" Version="2.2.1" />
     <PackageReference Include="Keyfactor.Logging" Version="1.1.1" />
     <PackageReference Include="Keyfactor.Orchestrators.IOrchestratorJobExtensions" Version="1.0.0" />
 	
@@ -17,6 +18,30 @@
 	</None>
 	
 	<PackageReference Include="RestSharp" Version="112.1.0" />
+	
+	<None Update="Files\SetHttpsBinding.xml">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
+	
+	<None Update="Files\SetIEEEBinding.xml">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
+	
+	<None Update="Files\SetMQTTBinding.json">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
+	
+	<None Update="Files\GetHttpsBinding.xml">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
+	
+	<None Update="Files\GetIEEEBinding.xml">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
+	
+	<None Update="Files\GetMQTTBinding.json">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
   </ItemGroup>
 
 </Project>
