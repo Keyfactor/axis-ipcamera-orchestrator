@@ -29,8 +29,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
         {
             List<CurrentInventoryItem> inventoryItems = new List<CurrentInventoryItem>();
             var warningFlag = false;
-            var warningSb = new StringBuilder();
-
+            
             try
             {
                 _logger.MethodEntry();
@@ -107,9 +106,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         }
                         catch 
                         {
-                            _logger.LogWarning($"Could not fetch the certificate: {c?.Alias} associated with description {c?.CertAsPem}.");
-                            warningSb.Append(
-                                $"Could not fetch 1 or more CA certificates. Refer to the log for more detailed information.");
+                            _logger.LogWarning($"Could not fetch the CA certificate: {c?.Alias} associated with description {c?.CertAsPem}.");
                             warningFlag = true;
                             return new CurrentInventoryItem();
                         }
@@ -126,9 +123,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         }
                         catch 
                         {
-                            _logger.LogWarning($"Could not fetch the certificate: {c?.Alias} associated with description {c?.CertAsPem}.");
-                            warningSb.Append(
-                                $"Could not fetch 1 or more CA certificates. Refer to the log for more detailed information.");
+                            _logger.LogWarning($"Could not fetch the client certificate: {c?.Alias} associated with description {c?.CertAsPem}.");
                             warningFlag = true;
                             return new CurrentInventoryItem();
                         }
@@ -143,7 +138,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     {
                         Result = OrchestratorJobStatusJobResult.Warning, 
                         JobHistoryId = config.JobHistoryId,
-                        FailureMessage = warningSb.ToString()
+                        FailureMessage = "Could not fetch 1 or more certificates. Refer to the log for more detailed information."
                     };
                 }
             }
@@ -188,7 +183,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     UseChainLevel = false, // Will only ever have 1 single cert
                     Parameters = new Dictionary<string, object>()
                     {
-                        {Constants.CertUsageParamName, GetCertUsageAsString(Constants.CertificateUsage.Trust)}
+                        {Constants.CertUsageParamName, Constants.GetCertUsageAsString(Constants.CertificateUsage.Trust)}
                     }
                 };
 
@@ -227,7 +222,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     UseChainLevel = false, // Will only ever have 1 single cert
                     Parameters = new Dictionary<string, object>()
                     {
-                        {Constants.CertUsageParamName, GetCertUsageAsString(cert.Binding)}
+                        {Constants.CertUsageParamName, Constants.GetCertUsageAsString(cert.Binding)}
                     }
                 };
 
@@ -240,50 +235,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 _logger.LogError($"Error Occurred in Inventory.BuildInventoryItem for Client Certificates: {LogHandler.FlattenException(e)}");
                 throw;
             }
-        }
-
-        /// <summary>
-        /// Maps the certificate usage enum values to the corresponding string values that are configured
-        /// for the "Certificate Usage" entry parameter inside of Command. These *MUST* match.
-        /// </summary>
-        /// <param name="certUsageEnum"></param>
-        /// <returns>String representation of certificate usage that appears in Command on each certificate</returns>
-        private string GetCertUsageAsString(Constants.CertificateUsage certUsageEnum)
-        {
-            string certUsageString = "";
-            switch (certUsageEnum)
-            {
-                    case Constants.CertificateUsage.Https:
-                    {
-                        certUsageString = "HTTPS";
-                        break;
-                    }
-                    case Constants.CertificateUsage.MQTT:
-                    {
-                        certUsageString = "MQTT";
-                        break;
-                    }
-                    case Constants.CertificateUsage.IEEE:
-                    {
-                        certUsageString = "IEEE802.X";
-                        break;
-                    }
-                    case Constants.CertificateUsage.Trust:
-                    {
-                        certUsageString = "Trust";
-                        break;
-                    }
-                    case Constants.CertificateUsage.None:
-                    {
-                        certUsageString = "None";
-                        break;
-                    }
-                default:
-                    throw new Exception("No certificate usage defined.");
-                    break;
-            }
-
-            return certUsageString;
         }
     }
 }

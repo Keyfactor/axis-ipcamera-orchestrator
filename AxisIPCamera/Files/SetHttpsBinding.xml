@@ -1,0 +1,37 @@
+<SOAP-ENV:Envelope
+        xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+        xmlns:aweb="http://www.axis.com/vapix/ws/webserver"
+        xmlns:acert="http://www.axis.com/vapix/ws/cert"
+        xmlns:xs="http://www.w3.org/2001/XMLSchema"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+        xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope">
+
+    <SOAP-ENV:Body>
+        <aweb:SetWebServerTlsConfiguration xmlns="http://www.axis.com/vapix/ws/webserver">
+            <Configuration>
+                <Tls>true</Tls>
+                <aweb:ConnectionPolicies>
+                    <aweb:Admin>Https</aweb:Admin>
+                </aweb:ConnectionPolicies>
+                <aweb:Ciphers>
+                    <acert:Cipher>ECDHE-ECDSA-AES128-GCM-SHA256</acert:Cipher>
+                    <acert:Cipher>ECDHE-RSA-AES128-GCM-SHA256</acert:Cipher>
+                    <acert:Cipher>ECDHE-ECDSA-AES256-GCM-SHA384</acert:Cipher>
+                    <acert:Cipher>ECDHE-RSA-AES256-GCM-SHA384</acert:Cipher>
+                    <acert:Cipher>ECDHE-ECDSA-CHACHA20-POLY1305</acert:Cipher>
+                    <acert:Cipher>ECDHE-RSA-CHACHA20-POLY1305</acert:Cipher>
+                    <acert:Cipher>DHE-RSA-AES128-GCM-SHA256</acert:Cipher>
+                    <acert:Cipher>DHE-RSA-AES256-GCM-SHA384</acert:Cipher>
+                </aweb:Ciphers>
+                <aweb:CertificateSet>
+                    <acert:Certificates>
+                        <acert:Id>{ALIAS}</acert:Id>
+                    </acert:Certificates>
+                    <acert:CACertificates></acert:CACertificates>
+                    <acert:TrustedCertificates></acert:TrustedCertificates>
+                </aweb:CertificateSet>
+            </Configuration>
+        </aweb:SetWebServerTlsConfiguration>
+    </SOAP-ENV:Body>
+</SOAP-ENV:Envelope>
