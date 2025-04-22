@@ -1,13 +1,13 @@
 {
-  "apiVersion": "1.0",
+  "apiVersion": "{API_VERSION}",
   "method": "configureClient",
   "params": {
     "server":
     {
       "protocol": "ssl",
-      "host": "192.168.0.1"
+      "host": "{HOST}"
     },
-    "clientId":"client_B8A44FC54F2E",
+    "clientId":"{CLIENT_ID}",
     "cleanSession": false,
     "ssl": {
       "clientCertID": "{ALIAS}",

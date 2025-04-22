@@ -145,7 +145,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             catch (Exception e1)
             {
                 // Status: 2=Success, 3=Warning, 4=Error
-                return new JobResult() { Result = OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Inventory Job Failed During Inventory Item Creation: {e1.Message}" };
+                return new JobResult() { Result = OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, 
+                    FailureMessage = $"Inventory Job Failed During Inventory Item Creation: {e1.Message} - Refer to logs for more detailed information." };
             }
 
             try
@@ -162,7 +163,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             {
                 // NOTE: If the cause of the submitInventory.Invoke exception is a communication issue between the Orchestrator server and the Command server, the job status returned here
                 //  may not be reflected in Keyfactor Command.
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Inventory Job Failed During Inventory Item Submission: {e2.Message}" };
+                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, 
+                    FailureMessage = $"Inventory Job Failed During Inventory Item Submission: {e2.Message} - Refer to logs for more detailed information." };
             }
         }
 

@@ -36,13 +36,13 @@ using System.Xml;
  * -Trust
  *
  * It's important to note that this integration makes use of 3 different Axis APIs.
- * (1) VAPIX Certificate Management API = This is used for generating and installing new certs, fetching certs,
+ * (1) VAPIX Certificate Management API (REST) = This is used for generating and installing new certs, fetching certs,
  * removing and replacing certs (**This is a newer REST API that is only available on AXIS OS 11 and 12)
  *
- * (2) Certificate management API = This is used to retrieve and set the certificates associated with
+ * (2) Certificate management API (SOAP) = This is used to retrieve and set the certificates associated with
  * HTTPS and IEEE802.x applications (**This is the older SOAP API that is available on AXIS 0S 10 and below.)
  * 
- * (3) MQTT Client API = This is used to retrieve and set the certificate associated with
+ * (3) MQTT Client API (CGI) = This is used to retrieve and set the certificate associated with
  * MQTT applications (**This implements client.cgi as its communications interface)
  * 
  */
@@ -116,13 +116,13 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             {
                 Logger.MethodEntry();
 
-                var getCACertsResource = $"{Constants.ApiEntryPoint}/ca_certificates";
-                var httpResponse = ExecuteHttp(getCACertsResource, Method.Get, Constants.ApiType.VapixCertMgmt);
+                var getCACertsResource = $"{Constants.RestApiEntryPoint}/ca_certificates";
+                var httpResponse = ExecuteHttp(getCACertsResource, Method.Get);
 
                 // Decode the HTTP response if failed
                 if (!httpResponse.IsSuccessful)
                 {
-                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHTTPStatus(httpResponse)}");
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
                     throw new Exception($"HTTP Request unsuccessful.");
                 }
                 // Decode the API response when HTTP response is successful
@@ -150,7 +150,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             catch (Exception e)
             {
                 Logger.LogError("Error retrieving CA certificates on device: " + LogHandler.FlattenException(e));
-                throw new Exception(e.Message + " Refer to logs for more detailed information.");
+                throw new Exception(e.Message);
             }
         }
 
@@ -166,13 +166,13 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             {
                 Logger.MethodEntry();
 
-                var getCertsResource = $"{Constants.ApiEntryPoint}/certificates";
-                var httpResponse = ExecuteHttp(getCertsResource, Method.Get, Constants.ApiType.VapixCertMgmt);
+                var getCertsResource = $"{Constants.RestApiEntryPoint}/certificates";
+                var httpResponse = ExecuteHttp(getCertsResource, Method.Get);
                 
                 // Decode the HTTP response if failed
-                if (!httpResponse.IsSuccessful)
+                if (httpResponse is {IsSuccessful:false})
                 {
-                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHTTPStatus(httpResponse)}");
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
                     throw new Exception($"HTTP Request unsuccessful.");
                 }
                 // Decode the API response when HTTP response is successful
@@ -199,7 +199,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             catch (Exception e)
             {
                 Logger.LogError("Error retrieving client certificates on device: " + LogHandler.FlattenException(e));
-                throw new Exception(e.Message + " Refer to logs for more detailed information.");
+                throw new Exception(e.Message);
             }
         }
 
@@ -213,13 +213,13 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             {
                 Logger.MethodEntry();
 
-                var getDefaultKeystoreResource = $"{Constants.ApiEntryPoint}/settings/keystore";
-                var httpResponse = ExecuteHttp(getDefaultKeystoreResource, Method.Get, Constants.ApiType.VapixCertMgmt);
+                var getDefaultKeystoreResource = $"{Constants.RestApiEntryPoint}/settings/keystore";
+                var httpResponse = ExecuteHttp(getDefaultKeystoreResource, Method.Get);
                 
                 // Decode the HTTP response if failed
-                if (!httpResponse.IsSuccessful)
+                if (httpResponse is {IsSuccessful:false})
                 {
-                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHTTPStatus(httpResponse)}");
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
                     throw new Exception($"HTTP Request unsuccessful.");
                 }
                 // Decode the API response when HTTP response is successful
@@ -247,7 +247,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             catch (Exception e)
             {
                 Logger.LogError("Error retrieving default keystore configuration on device: " + LogHandler.FlattenException(e));
-                throw new Exception(e.Message + " Refer to logs for more detailed information.");
+                throw new Exception(e.Message);
             }
         }
 
@@ -266,7 +266,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             {
                 Logger.MethodEntry();
 
-                var postSelfSignedCertResource = $"{Constants.ApiEntryPoint}/create_certificate";
+                var postSelfSignedCertResource = $"{Constants.RestApiEntryPoint}/create_certificate";
                 
                 // Compose the self-signed cert body
                 SelfSignedCertificateData ssc = new SelfSignedCertificateData
@@ -284,12 +284,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 };
 
                 string jsonBody = JsonConvert.SerializeObject(ssc);
-                var httpResponse = ExecuteHttp(postSelfSignedCertResource, Method.Post, Constants.ApiType.VapixCertMgmt, jsonBody);
+                var httpResponse = ExecuteHttp(postSelfSignedCertResource, Method.Post, Constants.ApiType.Rest, jsonBody);
                 
                 // Decode the HTTP response if failed
-                if (!httpResponse.IsSuccessful)
+                if (httpResponse is {IsSuccessful:false})
                 {
-                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHTTPStatus(httpResponse)}");
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
                     throw new Exception($"HTTP Request unsuccessful.");
                 }
                 // Decode the API response when HTTP response is successful
@@ -316,7 +316,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             catch (Exception e)
             {
                 Logger.LogError("Error creating self-signed certificate: " + LogHandler.FlattenException(e));
-                throw new Exception(e.Message + " Refer to logs for more detailed information.");
+                throw new Exception(e.Message);
             }
         }
 
@@ -326,17 +326,19 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             {
                 Logger.MethodEntry();
 
-                var postCSRResource = $"{Constants.ApiEntryPoint}/certificates/{alias}/get_csr";
+                var postCSRResource = $"{Constants.RestApiEntryPoint}/certificates/{alias}/get_csr";
                 
                 // Compose the body --- This is required, but leaving the contents blank.
                 // All information obtained in the self-signed cert will be used to create the CSR.
+                // If there are attributes assigned by the CA, those will override the attributes that end up
+                // in the certificate signed by the CA. 
                 string jsonBody = @"{""data"":{}}";
-                var httpResponse = ExecuteHttp(postCSRResource, Method.Post, Constants.ApiType.VapixCertMgmt, jsonBody);
+                var httpResponse = ExecuteHttp(postCSRResource, Method.Post, Constants.ApiType.Rest, jsonBody);
                 
                 // Decode the HTTP response if failed
-                if (!httpResponse.IsSuccessful)
+                if (httpResponse is {IsSuccessful:false})
                 {
-                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHTTPStatus(httpResponse)}");
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
                     throw new Exception($"HTTP Request unsuccessful.");
                 }
                 // Decode the API response when HTTP response is successful
@@ -364,7 +366,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             catch (Exception e)
             {
                 Logger.LogError("Error completing certificate reenrollment: " + LogHandler.FlattenException(e));
-                throw new Exception(e.Message + " Refer to logs for more detailed information.");
+                throw new Exception(e.Message);
             }
         }
 
@@ -374,16 +376,16 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             {
                 Logger.MethodEntry();
 
-                var patchCertResource = $"{Constants.ApiEntryPoint}/certificates/{alias}";
+                var patchCertResource = $"{Constants.RestApiEntryPoint}/certificates/{alias}";
                 
                 // Compose the cert body
                 string jsonBody = @"{""data"":{""certificate"":""" + pemCert + @"""}}";
-                var httpResponse = ExecuteHttp(patchCertResource, Method.Patch, Constants.ApiType.VapixCertMgmt, jsonBody);
+                var httpResponse = ExecuteHttp(patchCertResource, Method.Patch, Constants.ApiType.Rest, jsonBody);
                 
                 // Decode the HTTP response if failed
-                if (!httpResponse.IsSuccessful)
+                if (httpResponse is {IsSuccessful:false})
                 {
-                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHTTPStatus(httpResponse)}");
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
                     throw new Exception($"HTTP Request unsuccessful.");
                 }
                 // Decode the API response when HTTP response is successful
@@ -410,7 +412,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             catch (Exception e)
             {
                 Logger.LogError("Error completing certificate replacement: " + LogHandler.FlattenException(e));
-                throw new Exception(e.Message + " Refer to logs for more detailed information.");
+                throw new Exception(e.Message);
             }
         }
 
@@ -453,7 +455,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                         var xmlTemplate = File.ReadAllText($"{assemblyPath}\\Files\\SetHttpsBinding.xml");
                         body = xmlTemplate.Replace("{ALIAS}", alias);
                         
-                        httpResponse = ExecuteHttp("/vapix/services", Method.Post, Constants.ApiType.CertMgmt,body);
+                        httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,body);
                         
                         break;
                     }
@@ -462,16 +464,35 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                         var xmlTemplate = File.ReadAllText($"{assemblyPath}\\Files\\SetIEEEBinding.xml");
                         body = xmlTemplate.Replace("{ALIAS}", alias);
                         
-                        httpResponse = ExecuteHttp("/vapix/services", Method.Post, Constants.ApiType.CertMgmt,body);
+                        httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,body);
                         
                         break;
                     }
                     case Constants.CertificateUsage.MQTT:
                     {
+                        // Get the config info that's needed for the request body used to set the binding
+                        var clientStatusBody = File.ReadAllText($"{assemblyPath}\\Files\\GetMQTTBinding.json");
+                        var httpResponse1 = ExecuteHttp(Constants.CgiApiEntryPoint, Method.Post,Constants.ApiType.Cgi, clientStatusBody);
+                        MqttResponse data = JsonConvert.DeserializeObject<MqttResponse>(httpResponse1.Content);
+
                         var jsonTemplate = File.ReadAllText($"{assemblyPath}\\Files\\SetMQTTBinding.json");
-                        body = jsonTemplate.Replace("{ALIAS}", alias);
+                        Logger.LogDebug("API Version: " + data.ApiVersion);
+                        Logger.LogDebug("Host: " + data.Data.Config.Server.Host);
+                        Logger.LogDebug("Client ID: " + data.Data.Config.ClientId);
+                        Logger.LogDebug("Alias: " + alias);
+                        body = jsonTemplate.Replace("{API_VERSION}", data.ApiVersion)
+                                        .Replace("{HOST}", data.Data.Config.Server.Host)
+                                        .Replace("{CLIENT_ID}", data.Data.Config.ClientId)
+                                        .Replace("{ALIAS}", alias);
                         
-                        httpResponse = ExecuteHttp("/axis-cgi/mqtt/client.cgi", Method.Post, Constants.ApiType.MQTTClient,body);
+                        // Get validate server cert setting
+                        MqttBody updatedBody = JsonConvert.DeserializeObject<MqttBody>(body);
+                        updatedBody.Params.Ssl.ValidateServerCert = data.Data.Config.Ssl.ValidateServerCert;
+                        updatedBody.Params.CleanSession = data.Data.Config.CleanSession;
+                        var newBody = JsonConvert.SerializeObject(updatedBody);
+                        Logger.LogDebug("JSON Body: " + newBody);
+                        
+                        httpResponse = ExecuteHttp(Constants.CgiApiEntryPoint, Method.Post, Constants.ApiType.Cgi,newBody);
 
                         break;
                     }
@@ -482,7 +503,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 // Decode the HTTP response if failed
                 if (httpResponse is { IsSuccessful: false })
                 {
-                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHTTPStatus(httpResponse)}");
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
                     throw new Exception($"HTTP Request unsuccessful.");
                 }
 
@@ -490,7 +511,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             }
             catch (Exception e)
             {
-                Logger.LogError("Error setting binding: " + LogHandler.FlattenException(e) + " Refer to logs for more detailed information.");
+                Logger.LogError("Error setting binding: " + LogHandler.FlattenException(e));
                 throw new Exception(e.Message);
             }
         }
@@ -504,31 +525,31 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 string body = "";
                 RestResponse httpResponse = null;
                 string assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
+                string certUsageString = Constants.GetCertUsageAsString(certUsage);
+                string boundCertAlias = "UNKNOWN";
                 
-                // Compose the body
+                // Compose the body based on the certificate usage
+                Logger.LogTrace($"Retrieving certificate binding for '{certUsageString}'");
                 switch (certUsage)
                 {
                     case Constants.CertificateUsage.Https:
                     {
-                        var xmlTemplate = File.ReadAllText($"{assemblyPath}\\Files\\GetHttpsBinding.xml");
-                        
-                        httpResponse = ExecuteHttp("/vapix/services", Method.Post, Constants.ApiType.CertMgmt,body);
+                        body = File.ReadAllText($"{assemblyPath}\\Files\\GetHttpsBinding.xml");
+                        httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,body);
                         
                         break;
                     }
                     case Constants.CertificateUsage.IEEE:
                     {
-                        var xmlTemplate = File.ReadAllText($"{assemblyPath}\\Files\\GetIEEEBinding.xml");
-                        
-                        httpResponse = ExecuteHttp("/vapix/services", Method.Post, Constants.ApiType.CertMgmt,body);
+                        body = File.ReadAllText($"{assemblyPath}\\Files\\GetIEEEBinding.xml");
+                        httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,body);
                         
                         break;
                     }
                     case Constants.CertificateUsage.MQTT:
                     {
-                        var jsonTemplate = File.ReadAllText($"{assemblyPath}\\Files\\GetMQTTBinding.json");
-                        
-                        httpResponse = ExecuteHttp("/axis-cgi/mqtt/client.cgi", Method.Post, Constants.ApiType.MQTTClient,body);
+                        body = File.ReadAllText($"{assemblyPath}\\Files\\GetMQTTBinding.json");
+                        httpResponse = ExecuteHttp(Constants.CgiApiEntryPoint, Method.Post, Constants.ApiType.Cgi,body);
 
                         break;
                     }
@@ -536,63 +557,124 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                         break;
                 }
                 
-                //var bindingAlias = HTTP_PostGetBinding(certUsage);
-                
-                // Parse the response to retrieve the certificate alias
-                /*XmlDocument xdoc = new XmlDocument();
-                XmlNodeList xnodes = null;
-                xdoc.LoadXml(httpResponse.Content);
-
-                var tagName = "";
-                if (certUsage == Constants.CertificateUsage.Https)
+                // Decode the HTTP response if failed
+                if (httpResponse is {IsSuccessful:false})
                 {
-                    tagName = Constants.HttpsAliasTagName;
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
+                    throw new Exception($"HTTP Request unsuccessful.");
                 }
-                else if (certUsage == Constants.CertificateUsage.IEEE)
-                {
-                    tagName = Constants.IEEEAliasTagName;
-                }
+                // Decode the API response when HTTP response is successful
                 else
                 {
-                    throw new Exception("Unknown certificate usage. Unable to parse the SOAP response.");
-                }
-
-                // Extract the XML node identified by the tag name 
-                xnodes = xdoc.GetElementsByTagName(tagName);
-
-                if (xnodes is null)
-                {
-                    throw new Exception(
-                        $"Could not locate XML tag '{tagName}' in the SOAP response. Unable to extract the certificate alias.");
-                }
-
-                for (int i = 0; i < xnodes.Count; i++)
-                {
-                    if (i > 0)
+                    if (string.IsNullOrEmpty(httpResponse.Content))
                     {
-                        throw new Exception(
-                            "More than 1 certificate alias was found in the SOAP response. This should never happen.");
+                        throw new Exception("No content returned from HTTP Response");
                     }
 
-                    boundCertAlias = xnodes[i].InnerXml;
-                    Logger.LogDebug($"Bound Alias: {boundCertAlias}");
+                    // Parse the response based on the certificate usage
+                    switch (certUsage)
+                    {
+                        case Constants.CertificateUsage.Https:
+                        {
+                            XmlDocument xDoc = new XmlDocument();
+                            XmlNodeList xNodes = null;
+                            xDoc.LoadXml(httpResponse.Content);
+
+                            // Extract the XML node identified by the tag name 
+                            xNodes = xDoc.GetElementsByTagName(Constants.HttpsAliasTagName);
+                            if (xNodes is null)
+                            {
+                                throw new Exception(
+                                    $"Could not locate XML tag '{Constants.HttpsAliasTagName}' in the SOAP response. Unable to extract the certificate alias.");
+                            }
+
+                            for (int i = 0; i < xNodes.Count; i++)
+                            {
+                                if (i > 0)
+                                {
+                                    throw new Exception(
+                                        "More than 1 certificate alias was found in the SOAP response. This should never happen.");
+                                }
+
+                                if (xNodes[i] is null)
+                                {
+                                    throw new Exception($"XML element at position {i} is null.");
+                                }
+
+                                boundCertAlias = xNodes[i].InnerXml;
+                            }
+
+                            break;
+                        }
+                        case Constants.CertificateUsage.IEEE:
+                        {
+                            XmlDocument xDoc = new XmlDocument();
+                            XmlNodeList xNodes = null;
+                            xDoc.LoadXml(httpResponse.Content);
+
+                            // Extract the XML node identified by the tag name 
+                            xNodes = xDoc.GetElementsByTagName(Constants.IEEEAliasTagName);
+                            if (xNodes is null)
+                            {
+                                throw new Exception(
+                                    $"Could not locate XML tag '{Constants.IEEEAliasTagName}' in the SOAP response. Unable to extract the certificate alias.");
+                            }
+
+                            for (int i = 0; i < xNodes.Count; i++)
+                            {
+                                if (i > 0)
+                                {
+                                    throw new Exception(
+                                        "More than 1 certificate alias was found in the SOAP response. This should never happen.");
+                                }
+
+                                if (xNodes[i] is null)
+                                {
+                                    throw new Exception($"XML element at position {i} is null.");
+                                }
+
+                                boundCertAlias = xNodes[i].InnerXml;
+                            }
+
+                            break;
+                        }
+                        case Constants.CertificateUsage.MQTT:
+                        {
+                            var mqtt = JsonConvert.DeserializeObject<MqttResponse>(httpResponse.Content);
+                            // If no client certificate is assigned or the value is "None" for the MQTT binding, the 'clientCertId' key will not appear in the JSON response
+                            if (string.IsNullOrEmpty(mqtt.Data.Config.Ssl.ClientCertId))
+                            {
+                                Logger.LogTrace($"No client certificate assigned to '{certUsageString}'");
+                                boundCertAlias = "";
+                            }
+                            else
+                            {
+                                boundCertAlias = mqtt.Data.Config.Ssl.ClientCertId;   
+                            }
+
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+
+                    Logger.LogDebug($"Bound Certificate Alias: {boundCertAlias}");
+
+                    Logger.MethodExit();
                 }
 
-                Logger.MethodExit();*/
-
-                return "";
+                return boundCertAlias;
             }
             catch (Exception e)
             {
-                Logger.LogError(
-                    $"Error retrieving certificate binding for {Enum.GetName(typeof(Constants.CertificateUsage), certUsage)}: " +
+                Logger.LogError($"Error retrieving certificate binding for: " +
                     LogHandler.FlattenException(e));
                 throw new Exception(e.Message);
             }
         }
 
-        // VAPIX Certificate Management API Calls
-        private RestResponse ExecuteHttp(string resource, Method httpMethod, Constants.ApiType apiType, string body = null)
+        // GET Requests
+        private RestResponse ExecuteHttp(string resource, Method httpMethod)
         {
             try
             {
@@ -606,8 +688,48 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
                 var request = new RestRequest(resource, httpMethod);
 
-                // Cert management POST requests
-                if (apiType == Constants.ApiType.VapixCertMgmt && (httpMethod == Method.Post || httpMethod == Method.Patch))
+                Logger.LogDebug($"REST Request URI: {_httpClient.BuildUri(request)}");
+                Logger.LogDebug($"HTTP Method: {httpMethod.ToString()}");
+
+                Logger.LogTrace("Executing REST Request...");
+                var httpResponse = _httpClient.Execute(request);
+                if (httpResponse is null)
+                {
+                    throw new InvalidOperationException();
+                }
+
+                Logger.LogTrace("REST Request completed");
+
+                Logger.LogDebug($"REST Response: {httpResponse?.Content}");
+
+                Logger.MethodExit();
+
+                return httpResponse;
+            }
+            catch (Exception e)
+            {
+                Logger.LogError($"Error Occured in AxisRestClient.ExecuteHttp: {LogHandler.FlattenException(e)}");
+                throw;
+            }
+        }
+
+        // POST Requests
+        private RestResponse ExecuteHttp(string resource, Method httpMethod, Constants.ApiType apiType, string body)
+        {
+            try
+            {
+                Logger.MethodEntry();
+
+                // Check if HTTP client was properly initialized
+                if (_httpClient is null)
+                {
+                    throw new Exception("Axis IP Camera HTTP Client was not initialized.");
+                }
+
+                var request = new RestRequest(resource, httpMethod);
+
+                // JSON body required for REST Cert Management API and CGI client API
+                if (apiType is Constants.ApiType.Rest or Constants.ApiType.Cgi)
                 {
                     request.RequestFormat = DataFormat.Json;
                     if (String.IsNullOrEmpty(body))
@@ -618,8 +740,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     request.AddJsonBody(body);
                 }
 
-                // Cert binding POST requests
-                if (apiType == Constants.ApiType.CertMgmt && httpMethod == Method.Post)
+                // XML body required for SOAP Cert Management API 
+                if (apiType == Constants.ApiType.Soap)
                 {
                     request.AddHeader("Content-Type", "application/xml");
                     if (String.IsNullOrEmpty(body))
@@ -971,7 +1093,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 }
                 //_restClient ??= new RestClient(_baseRestClientUrl);
 
-                var resource = $"{Constants.ApiEntryPoint}/ca_certificates";
+                var resource = $"{Constants.RestApiEntryPoint}/ca_certificates";
                 var request = new RestRequest(resource, Method.Post);
                 request.RequestFormat = DataFormat.Json;
 
@@ -1146,7 +1268,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
         /**
          * HTTP POST (SOAP): Get the certificate binding for the provided certificate usage
-         */
+         
         private string HTTP_PostGetBinding(Constants.CertificateUsage certUsage)
         {
             string boundCertAlias = "Unknown";
@@ -1296,7 +1418,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     $"Error Occured in AxisRestClient.HTTP_PostGetBinding: {LogHandler.FlattenException(e)}");
                 throw;
             }
-        }
+        }*/
 
         /// <summary>
         /// Decodes the give HTTP status code into a human-readable string.
@@ -1304,7 +1426,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         /// </summary>
         /// <param name="httpResponse"></param>
         /// <returns>Human-readable representation of the HTTP status code</returns>
-        private string DecodeHTTPStatus(RestResponse httpResponse)
+        private string DecodeHttpStatus(RestResponse httpResponse)
         {
             Logger.MethodEntry();
             
