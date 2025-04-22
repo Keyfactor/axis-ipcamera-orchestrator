@@ -10,8 +10,14 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
 {
     public static class Constants
     {
-        // This is the API entry point for the VAPIX Cert Management API
-        public static string ApiEntryPoint = "/config/rest/cert/v1beta";
+        // This is the API entry point for the REST VAPIX Cert Management API
+        public static string RestApiEntryPoint = "/config/rest/cert/v1beta";
+
+        // This is the API entry point for the SOAP Cert Management API
+        public static string SoapApiEntryPoint = "/vapix/services";
+
+        // This is the API entry point for the CGI Client API
+        public static string CgiApiEntryPoint = "/axis-cgi/mqtt/client.cgi";
         
         // This is the Name of the Entry Parameter used to identify the certificate usage for each certificate on the camera
         public static string CertUsageParamName = "CertUsage";
@@ -22,6 +28,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
         
         // This is the XML tag identifier for the cert alias bound to the IEEE802.X network access control on the camera
         public static string IEEEAliasTagName = "tt:CertificateID";
+        
+        // This is the JSON key identifier for the cert alias bound to the MQTT over SSL on the camera
+        public static string MQTTAliasKeyName = "clientCertID";
         
         public enum CertificateUsage
         {
@@ -42,9 +51,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
 
         public enum ApiType
         {
-            VapixCertMgmt, // Cert Management
-            CertMgmt, // HTTP and IEEE cert bindings
-            MQTTClient // MQTT bindings
+            Rest, // VAPIX Certificate Management API (Used for Cert Management)
+            Soap, // Certificate management API (Used for HTTP and IEEE cert bindings)
+            Cgi // MQTT Client API (Used for MQTT bindings)
         }
         
         public enum Status
@@ -130,9 +139,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
         /// </summary>
         /// <param name="certUsageString"></param>
         /// <returns>Enum representation of certificate usage that is declared in Constants.cs</returns>
-        public static Constants.CertificateUsage GetCertUsageAsEnum(string certUsageString)
+        public static CertificateUsage GetCertUsageAsEnum(string certUsageString)
         {
-            Constants.CertificateUsage certUsageEnum = CertificateUsage.None;
+            var certUsageEnum = CertificateUsage.None;
             switch (certUsageString)
             {
                 case "HTTPS":

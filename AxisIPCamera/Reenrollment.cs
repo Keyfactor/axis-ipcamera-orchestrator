@@ -57,22 +57,22 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 string reenrollAlias = config.Alias ?? throw new Exception("Alias returned null");
                 _logger.LogDebug($"Alias: {reenrollAlias}");
                 
-                // Prevent reenrollment on Trust certificates
-                if (certUsageEnum == Constants.CertificateUsage.Trust)
+                // Prevent reenrollment on Trust certificates or those without a certificate usage
+                if (certUsageEnum is Constants.CertificateUsage.Trust or Constants.CertificateUsage.None)
                 {
                     throw new Exception(
-                        "Reenrollment cannot be performed on a store when the certificate usage is marked as 'Trust'");
+                        "Reenrollment cannot be performed on a store when the certificate usage is marked as 'Trust' or 'None'");
                 }
                 
                 _logger.LogTrace("Create HTTPS client to connect to device");
                 var client = new AxisHttpClient(config, config.CertificateStoreDetails);
 
                 // Get current binding for reenrollment certificate usage provided
-                _logger.LogTrace($"Check {certUsage} binding for same alias");
+                _logger.LogTrace($"Check '{certUsage}' binding for same alias");
                 var boundAlias = client.GetCertUsageBinding(Constants.GetCertUsageAsEnum(certUsage));
                 if (!string.IsNullOrEmpty(boundAlias))
                 {
-                    _logger.LogDebug($"Alias currently bound to certificate usage type {certUsage}: {boundAlias}");
+                    _logger.LogDebug($"Alias currently bound to certificate usage type '{certUsage}': {boundAlias}");
                     
                     if (boundAlias == reenrollAlias)
                     {
@@ -100,7 +100,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 if (keyType == "UNKNOWN")
                 {
                     throw new Exception(
-                        $"The key algorithm '{keyAlgorithm}' and key size '{keySize}' selected for reenrollment do not correspond to a valid key algorithm and" +
+                        $"The key algorithm '{keyAlgorithm}' and key size '{keySize}' selected for reenrollment " +
+                        $"do not correspond to a valid key algorithm and" +
                         $"key size on the device.");
                 }
                 
@@ -179,7 +180,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             catch (Exception ex)
             {
                 //Status: 2=Success, 3=Warning, 4=Error
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Reenrollment Job Failed: {ex.Message}" };
+                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, 
+                    FailureMessage = $"Reenrollment Job Failed: {ex.Message} - Refer to logs for more detailed information." };
             }
 
             //Status: 2=Success, 3=Warning, 4=Error
