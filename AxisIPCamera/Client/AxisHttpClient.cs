@@ -120,7 +120,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 var httpResponse = ExecuteHttp(getCACertsResource, Method.Get);
 
                 // Decode the HTTP response if failed
-                if (!httpResponse.IsSuccessful)
+                if (httpResponse is {IsSuccessful:false})
                 {
                     Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
                     throw new Exception($"HTTP Request unsuccessful.");
@@ -128,12 +128,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 // Decode the API response when HTTP response is successful
                 else
                 {
-                    if (string.IsNullOrEmpty(httpResponse.Content))
+                    if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
                     {
                         throw new Exception("No content returned from HTTP Response");
                     }
 
-                    ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
+                    RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
                     if (apiResponse.Status == Constants.Status.Success)
                     {
                         Logger.MethodExit();
@@ -178,12 +178,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 // Decode the API response when HTTP response is successful
                 else
                 {
-                    if (string.IsNullOrEmpty(httpResponse.Content))
+                    if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
                     {
                         throw new Exception("No content returned from HTTP response");
                     }
 
-                    ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
+                    RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
                     if (apiResponse.Status == Constants.Status.Success)
                     {
                         Logger.MethodExit();
@@ -192,7 +192,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     else
                     {
                         ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
-                        throw new Exception($"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code}");
+                        throw new Exception($"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
                     }
                 }
             }
@@ -225,12 +225,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 // Decode the API response when HTTP response is successful
                 else
                 {
-                    if (string.IsNullOrEmpty(httpResponse.Content))
+                    if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
                     {
                         throw new Exception("No content returned from HTTP Response");
                     }
 
-                    ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
+                    RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
                     if (apiResponse.Status == Constants.Status.Success)
                     {
                         Logger.MethodExit();
@@ -253,7 +253,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
         /// <summary>
         /// Generates a new certificate with private key on the device. Private key is generated inside the provided keystore.
-        /// This certificate is self-signed and will be used to fetch a CSR and get it signed by Command.
+        /// This certificate is self-signed and will be used to fetch a CSR and get it signed by a CA via Command.
         /// </summary>
         /// <param name="alias">Unique identifier for the cert</param>
         /// <param name="keyType">Combination of key algorithm and key size</param>
@@ -295,12 +295,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 // Decode the API response when HTTP response is successful
                 else
                 {
-                    if (string.IsNullOrEmpty(httpResponse.Content))
+                    if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
                     {
                         throw new Exception("No content returned from HTTP Response");
                     }
 
-                    ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
+                    RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
                     if (apiResponse.Status == Constants.Status.Success)
                     {
                         Logger.MethodExit();
@@ -320,6 +320,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             }
         }
 
+        /// <summary>
+        /// Obtains a CSR for the self-signed certificate with private key on the device.
+        /// Fields from the self-signed certificate will be copied into the CSR. 
+        /// </summary>
+        /// <param name="alias">Unique identifier for the cert to be generated from the CSR</param>
+        /// <returns>CSR string</returns>
         public string ObtainCSR(string alias)
         {
             try
@@ -344,12 +350,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 // Decode the API response when HTTP response is successful
                 else
                 {
-                    if (string.IsNullOrEmpty(httpResponse.Content))
+                    if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
                     {
                         throw new Exception("No content returned from HTTP Response");
                     }
 
-                    ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
+                    RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
                     if (apiResponse.Status == Constants.Status.Success)
                     {
                         Logger.MethodExit();
@@ -370,6 +376,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             }
         }
 
+        /// <summary>
+        /// Replaces the self-signed certificate with a new certificate signed by a CA via Command.
+        /// The private key for the new certificate must be the same private key as the one for the self-signed certificate.
+        /// </summary>
+        /// <param name="alias">Unique identifier for the self-signed certificate</param>
+        /// <param name="pemCert">PEM contents of the new signed certificate</param>
         public void ReplaceCertificate(string alias, string pemCert)
         {
             try
@@ -391,12 +403,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 // Decode the API response when HTTP response is successful
                 else
                 {
-                    if (string.IsNullOrEmpty(httpResponse.Content))
+                    if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
                     {
                         throw new Exception("No content returned from HTTP Response");
                     }
 
-                    ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
+                    RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
                     if (apiResponse.Status == Constants.Status.Success)
                     {
                         Logger.MethodExit();
@@ -437,77 +449,211 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             }
         }
 
+        /// <summary>
+        /// Updates the binding for a specific certificate usage.
+        /// Certificate usages include - HTTPS, IEEE802.X, and MQTT.
+        /// </summary>
+        /// <param name="alias">Unique identifier of the cert to be bound</param>
+        /// <param name="certUsage">Enum representing the certificate usage (Constants.CertificateUsage)</param>
         public void SetCertUsageBinding(string alias, Constants.CertificateUsage certUsage)
         {
             try
             {
                 Logger.MethodEntry();
-                
+
                 string body = "";
                 RestResponse httpResponse = null;
                 string assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
-                
-                // Compose the body
+                string certUsageString = Constants.GetCertUsageAsString(certUsage);
+
+                // Compose the request body based on the certificate usage
                 switch (certUsage)
                 {
                     case Constants.CertificateUsage.Https:
                     {
-                        var xmlTemplate = File.ReadAllText($"{assemblyPath}\\Files\\SetHttpsBinding.xml");
+                        Logger.LogTrace(
+                            $"Reading XML request body template from {assemblyPath}\\{Constants.SetHttpsTemplate}");
+                        var xmlTemplate = File.ReadAllText($"{assemblyPath}\\{Constants.SetHttpsTemplate}");
                         body = xmlTemplate.Replace("{ALIAS}", alias);
-                        
-                        httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,body);
-                        
+
+                        httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,
+                            body);
+
                         break;
                     }
                     case Constants.CertificateUsage.IEEE:
                     {
-                        var xmlTemplate = File.ReadAllText($"{assemblyPath}\\Files\\SetIEEEBinding.xml");
+                        Logger.LogTrace(
+                            $"Reading XML request body template from {assemblyPath}\\{Constants.SetIEEETemplate}");
+                        var xmlTemplate = File.ReadAllText($"{assemblyPath}\\{Constants.SetIEEETemplate}");
                         body = xmlTemplate.Replace("{ALIAS}", alias);
-                        
-                        httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,body);
-                        
+
+                        httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,
+                            body);
+
                         break;
                     }
                     case Constants.CertificateUsage.MQTT:
                     {
-                        // Get the config info that's needed for the request body used to set the binding
-                        var clientStatusBody = File.ReadAllText($"{assemblyPath}\\Files\\GetMQTTBinding.json");
-                        var httpResponse1 = ExecuteHttp(Constants.CgiApiEntryPoint, Method.Post,Constants.ApiType.Cgi, clientStatusBody);
-                        MqttResponse data = JsonConvert.DeserializeObject<MqttResponse>(httpResponse1.Content);
+                        // Get the config info that is required for the request body used to set the binding
+                        Logger.LogTrace(
+                            "Retrieve required MQTT configuration data required for the JSON request body to set the binding");
+                        var clientStatusBody = File.ReadAllText($"{assemblyPath}\\{Constants.GetMQTTTemplate}");
+                        var clientStatusResponse = ExecuteHttp(Constants.CgiApiEntryPoint, Method.Post,
+                            Constants.ApiType.Cgi,
+                            clientStatusBody);
 
-                        var jsonTemplate = File.ReadAllText($"{assemblyPath}\\Files\\SetMQTTBinding.json");
-                        Logger.LogDebug("API Version: " + data.ApiVersion);
-                        Logger.LogDebug("Host: " + data.Data.Config.Server.Host);
-                        Logger.LogDebug("Client ID: " + data.Data.Config.ClientId);
-                        Logger.LogDebug("Alias: " + alias);
-                        body = jsonTemplate.Replace("{API_VERSION}", data.ApiVersion)
-                                        .Replace("{HOST}", data.Data.Config.Server.Host)
-                                        .Replace("{CLIENT_ID}", data.Data.Config.ClientId)
-                                        .Replace("{ALIAS}", alias);
-                        
-                        // Get validate server cert setting
-                        MqttBody updatedBody = JsonConvert.DeserializeObject<MqttBody>(body);
-                        updatedBody.Params.Ssl.ValidateServerCert = data.Data.Config.Ssl.ValidateServerCert;
-                        updatedBody.Params.CleanSession = data.Data.Config.CleanSession;
-                        var newBody = JsonConvert.SerializeObject(updatedBody);
-                        Logger.LogDebug("JSON Body: " + newBody);
-                        
-                        httpResponse = ExecuteHttp(Constants.CgiApiEntryPoint, Method.Post, Constants.ApiType.Cgi,newBody);
+                        // Decode the HTTP response if failed
+                        if (clientStatusResponse is { IsSuccessful: false })
+                        {
+                            Logger.LogError(
+                                $"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(clientStatusResponse)}");
+                            throw new Exception($"HTTP Request unsuccessful.");
+                        }
+                        // Decode the API response when HTTP response is successful
+                        else
+                        {
+                            if (clientStatusResponse != null && string.IsNullOrEmpty(clientStatusResponse.Content))
+                            {
+                                throw new Exception("No content returned from HTTP Response");
+                            }
 
-                        break;
+                            CgiApiResponse apiResponse;
+                            try
+                            {
+                                Logger.LogTrace("Parsing the JSON response");
+                                apiResponse =
+                                    JsonConvert.DeserializeObject<CgiApiResponse>(clientStatusResponse.Content);
+                            }
+                            catch (JsonReaderException ex1)
+                            {
+                                throw new Exception($"JSON response body is malformed: {ex1.Message}");
+                            }
+                            catch (Exception ex2)
+                            {
+                                throw new Exception($"Unable to parse JSON response: {ex2.Message}");
+                            }
+
+                            if (apiResponse
+                                    .ErrorInfo is null) // No error was encountered, parse a successful API response
+                            {
+                                Logger.LogTrace("CGI API returned success!");
+                                MqttResponse clientStatusData;
+                                try
+                                {
+                                    clientStatusData =
+                                        JsonConvert.DeserializeObject<MqttResponse>(clientStatusResponse.Content);
+                                }
+                                catch (JsonReaderException ex1)
+                                {
+                                    throw new Exception($"JSON response body is malformed: {ex1.Message}");
+                                }
+                                catch (Exception ex2)
+                                {
+                                    throw new Exception($"Unable to parse JSON response: {ex2.Message}");
+                                }
+
+                                var jsonTemplate = File.ReadAllText($"{assemblyPath}\\{Constants.SetMQTTTemplate}");
+                                Logger.LogDebug("Client Status Return Values - ");
+                                Logger.LogDebug("API Version: " + clientStatusData.ApiVersion);
+                                Logger.LogDebug("Host: " + clientStatusData.Data.Config.Server.Host);
+                                Logger.LogDebug("Client ID: " + clientStatusData.Data.Config.ClientId);
+                                Logger.LogDebug("Alias: " + alias);
+                                body = jsonTemplate.Replace("{API_VERSION}", clientStatusData.ApiVersion)
+                                    .Replace("{HOST}", clientStatusData.Data.Config.Server.Host)
+                                    .Replace("{CLIENT_ID}", clientStatusData.Data.Config.ClientId)
+                                    .Replace("{ALIAS}", alias);
+
+                                // Get validate server cert setting
+                                MqttBody updatedBody = JsonConvert.DeserializeObject<MqttBody>(body);
+                                updatedBody.Params.Ssl.ValidateServerCert =
+                                    clientStatusData.Data.Config.Ssl.ValidateServerCert;
+                                updatedBody.Params.CleanSession = clientStatusData.Data.Config.CleanSession;
+                                var finalBody = JsonConvert.SerializeObject(updatedBody);
+                                Logger.LogDebug("JSON Body: " + finalBody);
+
+                                httpResponse = ExecuteHttp(Constants.CgiApiEntryPoint, Method.Post,
+                                    Constants.ApiType.Cgi, finalBody);
+                            }
+                            else
+                            {
+                                Logger.LogTrace("CGI API returned an error");
+                                throw new Exception(
+                                    $"CGI API error encountered - {apiResponse.ErrorInfo.Message} - (Code: {apiResponse.ErrorInfo.Code})");
+                            }
+
+                            break;
+                        }
                     }
                     default:
                         break;
                 }
-               
+
                 // Decode the HTTP response if failed
                 if (httpResponse is { IsSuccessful: false })
                 {
                     Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
                     throw new Exception($"HTTP Request unsuccessful.");
                 }
+                // Decode the API response when HTTP response is successful
+                else
+                {
+                    if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
+                    {
+                        throw new Exception("No content returned from HTTP Response");
+                    }
 
-                Logger.MethodExit();
+                    // Parse the response based on the certificate usage --- make sure there were no errors
+                    switch (certUsage)
+                    {
+                        case Constants.CertificateUsage.Https:
+                        {
+                            // TODO: Add API error handling
+
+                            break;
+                        }
+                        case Constants.CertificateUsage.IEEE:
+                        {
+                            // TODO: Add API error handling
+
+                            break;
+                        }
+                        case Constants.CertificateUsage.MQTT:
+                        {
+                            CgiApiResponse apiResponse;
+                            try
+                            {
+                                Logger.LogTrace("Parsing the JSON response");
+                                apiResponse = JsonConvert.DeserializeObject<CgiApiResponse>(httpResponse.Content);
+                            }
+                            catch (JsonReaderException ex1)
+                            {
+                                throw new Exception($"JSON response body is malformed: {ex1.Message}");
+                            }
+                            catch (Exception ex2)
+                            {
+                                throw new Exception($"Unable to parse JSON response: {ex2.Message}");
+                            }
+
+                            if (apiResponse.ErrorInfo is null) // No error was encountered, parse a successful API response
+                            {
+                                Logger.LogTrace("CGI API returned success!");
+                            }
+                            else
+                            {
+                                Logger.LogTrace("CGI API returned an error");
+                                throw new Exception(
+                                    $"CGI API error encountered - {apiResponse.ErrorInfo.Message} - (Code: {apiResponse.ErrorInfo.Code})");
+                            }
+
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+
+                    Logger.MethodExit();
+                }
             }
             catch (Exception e)
             {
@@ -516,6 +662,11 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             }
         }
 
+        /// <summary>
+        /// Retrieves the binding for a specific certificate usage.
+        /// Certificate usages include - HTTPS, IEEE802.X, and MQTT.
+        /// </summary>
+        /// <param name="certUsage">Enum representing the certificate usage (Constants.CertificateUsage)</param>
         public string GetCertUsageBinding(Constants.CertificateUsage certUsage)
         {
             try
@@ -528,27 +679,30 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 string certUsageString = Constants.GetCertUsageAsString(certUsage);
                 string boundCertAlias = "UNKNOWN";
                 
-                // Compose the body based on the certificate usage
+                // Compose the request body based on the certificate usage
                 Logger.LogTrace($"Retrieving certificate binding for '{certUsageString}'");
                 switch (certUsage)
                 {
                     case Constants.CertificateUsage.Https:
                     {
-                        body = File.ReadAllText($"{assemblyPath}\\Files\\GetHttpsBinding.xml");
+                        Logger.LogTrace($"Reading XML request body template from {assemblyPath}\\{Constants.GetHttpsTemplate}");
+                        body = File.ReadAllText($"{assemblyPath}\\{Constants.GetHttpsTemplate}");
                         httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,body);
                         
                         break;
                     }
                     case Constants.CertificateUsage.IEEE:
                     {
-                        body = File.ReadAllText($"{assemblyPath}\\Files\\GetIEEEBinding.xml");
+                        Logger.LogTrace($"Reading XML request body template from {assemblyPath}\\{Constants.GetIEEETemplate}");
+                        body = File.ReadAllText($"{assemblyPath}\\{Constants.GetIEEETemplate}");
                         httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,body);
                         
                         break;
                     }
                     case Constants.CertificateUsage.MQTT:
                     {
-                        body = File.ReadAllText($"{assemblyPath}\\Files\\GetMQTTBinding.json");
+                        Logger.LogTrace($"Reading JSON request body template from {assemblyPath}\\{Constants.GetMQTTTemplate}");
+                        body = File.ReadAllText($"{assemblyPath}\\{Constants.GetMQTTTemplate}");
                         httpResponse = ExecuteHttp(Constants.CgiApiEntryPoint, Method.Post, Constants.ApiType.Cgi,body);
 
                         break;
@@ -566,7 +720,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 // Decode the API response when HTTP response is successful
                 else
                 {
-                    if (string.IsNullOrEmpty(httpResponse.Content))
+                    if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
                     {
                         throw new Exception("No content returned from HTTP Response");
                     }
@@ -640,18 +794,57 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                         }
                         case Constants.CertificateUsage.MQTT:
                         {
-                            var mqtt = JsonConvert.DeserializeObject<MqttResponse>(httpResponse.Content);
-                            // If no client certificate is assigned or the value is "None" for the MQTT binding, the 'clientCertId' key will not appear in the JSON response
-                            if (string.IsNullOrEmpty(mqtt.Data.Config.Ssl.ClientCertId))
+                            CgiApiResponse apiResponse;
+                            try
                             {
-                                Logger.LogTrace($"No client certificate assigned to '{certUsageString}'");
-                                boundCertAlias = "";
+                                Logger.LogTrace("Parsing the JSON response");
+                                apiResponse = JsonConvert.DeserializeObject<CgiApiResponse>(httpResponse.Content);
+                            }
+                            catch (JsonReaderException ex1)
+                            {
+                                throw new Exception($"JSON response body is malformed: {ex1.Message}");
+                            }
+                            catch (Exception ex2)
+                            {
+                                throw new Exception($"Unable to parse JSON response: {ex2.Message}");
+                            }
+                            
+                            if (apiResponse.ErrorInfo is null) // No error was encountered, parse a successful API response
+                            {
+                                Logger.LogTrace("CGI API returned success!");
+                                MqttResponse mqttResponse;
+                                try
+                                {
+                                    mqttResponse = JsonConvert.DeserializeObject<MqttResponse>(httpResponse.Content);
+                                }
+                                catch (JsonReaderException ex1)
+                                {
+                                    throw new Exception($"JSON response body is malformed: {ex1.Message}");
+                                }
+                                catch (Exception ex2)
+                                {
+                                    throw new Exception($"Unable to parse JSON response: {ex2.Message}");
+                                }
+                                
+                                // If no client certificate is assigned or the value is "None" for the MQTT binding,
+                                // the 'clientCertId' key will not appear in the JSON response
+                                if (string.IsNullOrEmpty(mqttResponse.Data.Config.Ssl.ClientCertId))
+                                {
+                                    Logger.LogTrace($"No client certificate assigned to '{certUsageString}'");
+                                    boundCertAlias = "";
+                                }
+                                else
+                                {
+                                    boundCertAlias = mqttResponse.Data.Config.Ssl.ClientCertId;   
+                                }
                             }
                             else
                             {
-                                boundCertAlias = mqtt.Data.Config.Ssl.ClientCertId;   
+                                Logger.LogTrace("CGI API returned an error");
+                                throw new Exception(
+                                    $"CGI API error encountered - {apiResponse.ErrorInfo.Message} - (Code: {apiResponse.ErrorInfo.Code})");
                             }
-
+                            
                             break;
                         }
                         default:
@@ -688,7 +881,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
                 var request = new RestRequest(resource, httpMethod);
 
-                Logger.LogDebug($"REST Request URI: {_httpClient.BuildUri(request)}");
+                Logger.LogDebug($"HTTP Request URI: {_httpClient.BuildUri(request)}");
                 Logger.LogDebug($"HTTP Method: {httpMethod.ToString()}");
 
                 Logger.LogTrace("Executing REST Request...");
@@ -698,9 +891,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     throw new InvalidOperationException();
                 }
 
-                Logger.LogTrace("REST Request completed");
+                Logger.LogTrace("HTTP Request completed");
 
-                Logger.LogDebug($"REST Response: {httpResponse?.Content}");
+                Logger.LogDebug($"HTTP Response: {httpResponse?.Content}");
 
                 Logger.MethodExit();
 
@@ -752,19 +945,19 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     request.AddParameter("application/xml", body, ParameterType.RequestBody);
                 }
 
-                Logger.LogDebug($"REST Request URI: {_httpClient.BuildUri(request)}");
+                Logger.LogDebug($"HTTP Request URI: {_httpClient.BuildUri(request)}");
                 Logger.LogDebug($"HTTP Method: {httpMethod.ToString()}");
 
-                Logger.LogTrace("Executing REST Request...");
+                Logger.LogTrace("Executing HTTP Request...");
                 var httpResponse = _httpClient.Execute(request);
                 if (httpResponse is null)
                 {
                     throw new InvalidOperationException();
                 }
 
-                Logger.LogTrace("REST Request completed");
+                Logger.LogTrace("HTTP Request completed");
 
-                Logger.LogDebug($"REST Response: {httpResponse?.Content}");
+                Logger.LogDebug($"HTTP Response: {httpResponse?.Content}");
 
                 Logger.MethodExit();
 
@@ -1111,7 +1304,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
                 Logger.LogTrace($"Rest Response: {httpResponse.Content}");
 
-                ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
+                RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
                 if (apiResponse.Status == Constants.Status.Success)
                 {
                     // TODO: Should I do something here?

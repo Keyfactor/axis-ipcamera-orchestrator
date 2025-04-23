@@ -70,8 +70,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 _logger.LogTrace("Retrieve all certificate bindings for each possible certificate usage type");
                 // Lookup the certificate used for HTTPS, MQTT, IEEE802.X
                 string httpAlias = client.GetCertUsageBinding(Constants.CertificateUsage.Https);
-                //string mqttAlias = client.GetBinding(Constants.CertificateUsage.MQTT);
                 string ieeeAlias = client.GetCertUsageBinding(Constants.CertificateUsage.IEEE);
+                string mqttAlias = client.GetCertUsageBinding(Constants.CertificateUsage.MQTT);
                 
                 // Set the binding on the client certificates object if the aliases found for each certificate usage match
                 _logger.LogTrace("Mark each client certificate with the appropriate certificate usage type");
@@ -86,6 +86,11 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     {
                         _logger.LogDebug($"Client cert with alias '{c.Alias}' is used for IEEE");
                         c.Binding = Constants.CertificateUsage.IEEE;
+                    }
+                    else if (c.Alias.Equals(mqttAlias))
+                    {
+                        _logger.LogDebug($"Client cert with alias '{c.Alias}' is used for MQTT");
+                        c.Binding = Constants.CertificateUsage.MQTT;
                     }
                     else
                     {

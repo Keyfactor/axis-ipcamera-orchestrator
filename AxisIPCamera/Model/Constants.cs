@@ -32,6 +32,15 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
         // This is the JSON key identifier for the cert alias bound to the MQTT over SSL on the camera
         public static string MQTTAliasKeyName = "clientCertID";
         
+        // Below are the relative file paths to the SOAP and CGI API request body templates
+        // NOTE: The 'Files' directory should be located in the same directory as the AxisIPCamera.dll
+        public static string GetHttpsTemplate = $"Files\\GetHttpsBinding.xml";
+        public static string GetIEEETemplate  = $"Files\\GetIEEEBinding.xml";
+        public static string GetMQTTTemplate  = $"Files\\GetMQTTBinding.json";
+        public static string SetHttpsTemplate = $"Files\\SetHttpsBinding.xml";
+        public static string SetIEEETemplate  = $"Files\\SetIEEEBinding.xml";
+        public static string SetMQTTTemplate  = $"Files\\SetMQTTBinding.json";
+        
         public enum CertificateUsage
         {
             Https,
