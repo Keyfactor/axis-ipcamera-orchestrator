@@ -428,7 +428,59 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             }
         }
 
-        public void AddCertificate(string alias, string pemCert)
+        /// <summary>
+        /// Adds a CA certificate to the device.
+        /// </summary>
+        /// <param name="alias">Unique identifier for the CA certificate</param>
+        /// <param name="pemCert">PEM contents of the CA certificate</param>
+        public void AddCACertificate(string alias, string pemCert)
+        {
+            try
+            {
+                Logger.MethodEntry();
+
+                var postCACertResource = $"{Constants.RestApiEntryPoint}/ca_certificates";
+                
+                // Compose the CA cert body
+                string jsonBody = @"{""data"":{""alias"":""" + alias + @""",""certificate"":""" + pemCert + @"""}}";
+                var httpResponse = ExecuteHttp(postCACertResource, Method.Post, Constants.ApiType.Rest, jsonBody);
+                
+                // Decode the HTTP response if failed
+                if (httpResponse is { IsSuccessful: false })
+                {
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
+                    throw new Exception($"HTTP Request unsuccessful.");
+                }
+                // Decode the API response when HTTP response is successful
+                else
+                {
+                    if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
+                    {
+                        throw new Exception("No content returned from HTTP Response");
+                    }
+
+                    RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
+                    if (apiResponse.Status == Constants.Status.Success)
+                    {
+                        Logger.MethodExit();
+                    }
+                    else
+                    {
+                        ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
+                        throw new Exception(
+                            $"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.LogError("Error completing CA certificate add: " + LogHandler.FlattenException(e));
+                throw new Exception(e.Message);
+            }
+        }
+        
+        
+        public void RemoveCertificate(string alias, string pemCert)
         {
             try
             {
