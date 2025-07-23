@@ -431,7 +431,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         /// <summary>
         /// Adds a CA certificate to the device.
         /// </summary>
-        /// <param name="alias">Unique identifier for the CA certificate</param>
+        /// <param name="alias">Unique identifier for the CA certificate to be added</param>
         /// <param name="pemCert">PEM contents of the CA certificate</param>
         public void AddCACertificate(string alias, string pemCert)
         {
@@ -478,25 +478,50 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 throw new Exception(e.Message);
             }
         }
-        
-        
-        public void RemoveCertificate(string alias, string pemCert)
+
+        /// <summary>
+        /// Removes a CA certificate from the device.
+        /// </summary>
+        /// <param name="alias">Unique identifier of the CA certificate to be removed</param>
+        public void RemoveCertificate(string alias)
         {
             try
             {
                 Logger.MethodEntry();
 
-                // Compose the cert body
-                string jsonBody = @"{""data"":{""alias"":""" + alias + @""",""certificate"":""" + pemCert + @"""}}";
-                Logger.LogDebug($"Pem cert JSON body: {jsonBody}");
+                var deleteCACertResource = $"{Constants.RestApiEntryPoint}/ca_certificates/{alias}";
+                var httpResponse = ExecuteHttp(deleteCACertResource, Method.Delete);
+                
+                // Decode the HTTP response if failed
+                if (httpResponse is { IsSuccessful: false })
+                {
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
+                    throw new Exception($"HTTP Request unsuccessful.");
+                }
+                // Decode the API response when HTTP response is successful
+                else
+                {
+                    if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
+                    {
+                        throw new Exception("No content returned from HTTP Response");
+                    }
 
-                HTTP_PostAddCACertificate(alias, jsonBody);
-
-                Logger.MethodExit();
+                    RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
+                    if (apiResponse.Status == Constants.Status.Success)
+                    {
+                        Logger.MethodExit();
+                    }
+                    else
+                    {
+                        ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
+                        throw new Exception(
+                            $"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
+                    }
+                }
             }
             catch (Exception e)
             {
-                Logger.LogError("Error completing certificate add: " + LogHandler.FlattenException(e));
+                Logger.LogError("Error completing CA certificate remove: " + LogHandler.FlattenException(e));
                 throw new Exception(e.Message);
             }
         }
@@ -918,7 +943,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             }
         }
 
-        // GET Requests
+        // GET / DELETE Requests
         private RestResponse ExecuteHttp(string resource, Method httpMethod)
         {
             try
@@ -1326,7 +1351,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
         /**
          * HTTP POST: Replace certificate but keep private key
-         */
+         
         private void HTTP_PostAddCACertificate(string alias, string jsonBody)
         {
             try
@@ -1378,7 +1403,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
         /**
          * HTTP POST: Set the binding for the provided alias and cert usage
-         
+         */
         private void HTTP_PostSetBinding(string alias, Constants.CertificateUsage certUsage)
         {
             try

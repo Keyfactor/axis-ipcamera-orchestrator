@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Text;
 using System.Linq;
+using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 using Keyfactor.Logging;
 using Keyfactor.Orchestrators.Extensions;
@@ -60,6 +61,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 {
                     case CertStoreOperationType.Add:
                     {
+                        _logger.LogInformation("Entered Management-Add Operation");
+                        
                         //OperationType == Add - Add a certificate to the certificate store passed in the config object
                         //Code logic to:
                         // 1) Connect to the orchestrated server (config.CertificateStoreDetails.ClientMachine) containing the certificate store
@@ -77,9 +80,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
 
                         _logger.LogDebug($"Certificate contents:{certBase64Der}");
 
-                        // TODO: Add logic to distinguish between CA cert and end entity certs
-                        // End-entity (client) certs will have private keys; therefore, do not continue with add 
-                        // if the cert contains a private key --- only add CA certs, which will not have a private key
+                        // Prevent add of client certs; Client certs may only be added via reenrollment
                         if (IsCACertificate(certBase64Der))
                         {
                             _logger.LogInformation("Certificate is a CA trust cert. Proceeding with Add operation...");
@@ -95,18 +96,43 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                             };
                         }
 
-                        // TODO: Add logic to handle overwrite flag
-                        
-                        
                         // Create client to connect to device
                         _logger.LogTrace("Creating Api Rest Client...");
                         var client = new AxisHttpClient(config, config.CertificateStoreDetails);
                         _logger.LogTrace("Api Rest Client Created...");
+                        
+                        // Ignore the 'Overwrite' flag; Currently NOT supporting overwriting an existing CA cert with the same alias.
+                        // The existing CA cert needs to be deleted first and then the new CA cert can be added with the same alias.
+                        // Log warning if user attempts to add a CA cert with the same alias.
+                        
+                        _logger.LogInformation($"Overwrite flag = {overwrite} --- IGNORING");
+                        // Perform CA cert inventory
+                        _logger.LogTrace("Retrieve all CA certificates");
+                        CACertificateData data1 = client.ListCACertificates();
+                        
+                        // Look for a CA cert with the same alias as the one requested
+                        _logger.LogTrace($"Searching for an existing CA cert with alias '{alias}'...");
+                        var existingCACert = data1.CACerts.FirstOrDefault(c => c.Alias == alias);
+                        
+                        if (null == existingCACert)
+                        {
+                            _logger.LogInformation($"Alias '{alias}' does not exist for any CA certificates. Proceeding with Add operation...");
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"A CA certificate was found with the alias '{alias}'. Unable to add this certificate.");
+                            return new JobResult()
+                            {
+                                Result = OrchestratorJobStatusJobResult.Warning, 
+                                JobHistoryId = config.JobHistoryId,
+                                FailureMessage = $"ALIAS ALREADY EXISTS FOR CA CERTIFICATE --- Provide a new alias and resubmit."
+                            };
+                        }
 
                         // Build PEM content
                         // TODO: Add this and the logic in reenrollment to client class (consolidate)
                         string formattedDer = InsertLineBreaks(certBase64Der, 64);
-                        _logger.LogDebug(($"Formatted certificate contents:\n {formattedDer}"));
+                        _logger.LogDebug(($"Formatted certificate contents:\n{formattedDer}"));
 
                         StringBuilder pemBuilder = new StringBuilder();
                         pemBuilder.Append(@"-----BEGIN CERTIFICATE-----\n");
@@ -122,6 +148,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     }
                     case CertStoreOperationType.Remove:
                     {
+                        _logger.LogInformation("Entered Management-Remove Operation");
+                        
                         //OperationType == Remove - Delete a certificate from the certificate store passed in the config object
                         //Code logic to:
                         // 1) Connect to the orchestrated server (config.CertificateStoreDetails.ClientMachine) containing the certificate store
@@ -140,7 +168,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         string alias = config.JobCertificate.Alias;
 
                         // Remove certificate with alias from the device
-
+                        client.RemoveCertificate(alias);
 
                         break;
                     }
@@ -167,6 +195,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Success, JobHistoryId = config.JobHistoryId };
         }
         
+        /// <summary>
+        /// Inserts line breaks every n-characters.
+        /// </summary>
+        /// <param name="input">String to break apart every n-lines</param>
+        /// <param name="lineLength">Length of each line</param>
+        /// <returns>Formatted string</returns>
         private static string InsertLineBreaks(string input, int lineLength)
         {
             int length = input.Length;
@@ -196,6 +230,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
         /// <summary>
         /// ASSUMPTION: This function assumes a certificate to be an end entity certificate
         /// if the basic constraints extension is NOT present in a version 3 certificate.
+        /// If the basic constraints extension IS present, it must have a value marked for 'CertificateAuthority'.
         /// FALLBACK: If this check produces a false positive, the Axis API will fail on the
         /// HTTP request and details will be logged accordingly.
         /// </summary>
