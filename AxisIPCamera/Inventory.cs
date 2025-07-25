@@ -40,6 +40,10 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 
                 _logger.LogTrace("Create HTTPS client to connect to device");
                 var client = new AxisHttpClient(config, config.CertificateStoreDetails);
+                
+                // TESTING custom fields
+                var props = config.CertificateStoreDetails.Properties;
+                _logger.LogDebug($"Here are the store properties: {props}");
 
                 // Perform CA cert inventory
                 _logger.LogTrace("Retrieve all CA certificates");

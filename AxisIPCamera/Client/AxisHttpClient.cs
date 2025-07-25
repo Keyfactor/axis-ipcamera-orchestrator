@@ -60,15 +60,40 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 Logger = LogHandler.GetClassLogger<AxisHttpClient>();
                 Logger.MethodEntry();
 
+                // TODO REMOVE
+                bool vetDevice = true;
+
                 Logger.LogTrace("Initializing Axis IP Camera HTTP Client");
 
-                var baseRestClientUrl = (config.UseSSL) ? $"https://{store.ClientMachine}" : $"http://{store.ClientMachine}";
+                var baseRestClientUrl =
+                    (config.UseSSL) ? $"https://{store.ClientMachine}" : $"http://{store.ClientMachine}";
 
                 // TODO: Need to consider onboarding of camera
                 Logger.LogDebug($"Base HTTP Client URL: {baseRestClientUrl}");
 
-                // Initialize HTTP client options with the base URL
-                var options = new RestClientOptions(baseRestClientUrl);
+                // If vetting the device, initialize custom HTTP handler for onboarding of device
+                RestClientOptions options = null;
+                if (vetDevice)
+                {
+                    Logger.LogInformation($"Vet device: {vetDevice} --- Looking at custom cert validator");
+                    var handler = new HttpClientHandler
+                    {
+                        ServerCertificateCustomValidationCallback =
+                            DeviceCertValidator.GetValidator(store.StorePath, Logger)
+                    };
+
+                    // Initialize HTTP client options with the base URL and custom cert validator
+                    options = new RestClientOptions(baseRestClientUrl)
+                    {
+                        ConfigureMessageHandler = _ => handler
+                    };
+                }
+                else
+                {
+                    // Initialize HTTP client options with the base URL
+                    options = new RestClientOptions(baseRestClientUrl);
+                    options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
+                }
 
                 // Add Basic Auth username and password credentials
                 Logger.LogTrace("Adding Basic Auth Credentials to the HTTP client options...");
@@ -86,14 +111,49 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 // TODO: Enable this flag in PRODUCTION
                 //if (config.UseSSL)
                 //{
-                options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
+                // TODO FOR TESTING: options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
                 //}
 
                 _httpClient = new RestClient(options);
 
+                // TODO FOR TESTING
+                if (vetDevice)
+                {
+                    var request = new RestRequest("/"); // Initiates the TLS handshake to retrieve the server cert
+                    var response = _httpClient.Execute(request);
+                    Logger.LogTrace($"Response status: {response.StatusCode}");
+
+                    /*if (!response.IsSuccessful)
+                    {
+                        if (response.StatusCode == 0 && response.ErrorException != null)
+                        {
+                            // Likely caused by TLS/Cert validation failure
+                            Logger.LogError(response.ErrorException, "TLS handshake or certificate validation failed.");
+                            throw new Exception("INVALID DEVICE --- Cert chain validation failed.",
+                                response.ErrorException);
+                        }
+
+                        Logger.LogError("Request failed. Status: {Status}, Message: {Message}",
+                            response.StatusCode, response.ErrorMessage);
+
+                        throw new Exception("Request failed: " + response.ErrorMessage);
+                    }*/
+                }
+
+
                 Logger.LogTrace("Completed Initialization of Axis IP Camera HTTP Client");
 
                 Logger.MethodExit();
+            }
+            catch (CertificateSslException e1)
+            {
+                Logger.LogError("Certificate SSL validation failed: " + LogHandler.FlattenException(e1));
+                throw;
+            }
+            catch (CertificateSubjectValidationException e2)
+            {
+                Logger.LogError("Subject validation failed: " + LogHandler.FlattenException(e2));
+                throw;
             }
             catch (Exception e)
             {
