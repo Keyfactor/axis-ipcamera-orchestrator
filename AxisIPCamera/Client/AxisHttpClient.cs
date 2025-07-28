@@ -543,7 +543,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         /// Removes a CA certificate from the device.
         /// </summary>
         /// <param name="alias">Unique identifier of the CA certificate to be removed</param>
-        public void RemoveCertificate(string alias)
+        public void RemoveCACertificate(string alias)
         {
             try
             {
