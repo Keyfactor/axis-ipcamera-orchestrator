@@ -158,17 +158,34 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         // Retrieve management config from Command
                         _logger.LogDebug($"Management Config {JsonConvert.SerializeObject(config)}");
                         _logger.LogDebug($"Client Machine: {config.CertificateStoreDetails.ClientMachine}");
+                        
+                        // Get needed information from config
+                        string alias = config.JobCertificate.Alias;
+                        string certBase64Der = config.JobCertificate.Contents;
 
+                        // Prevent removal of client certs; Client certs may be removed as part of a future update
+                        if (IsCACertificate(certBase64Der))
+                        {
+                            _logger.LogInformation("Certificate is a CA trust cert. Proceeding with Remove operation...");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Certificate is an end-entity cert. Unable to remove this certificate type from a device.");
+                            return new JobResult()
+                            {
+                                Result = OrchestratorJobStatusJobResult.Warning, 
+                                JobHistoryId = config.JobHistoryId,
+                                FailureMessage = $"UNSUPPORTED OPERATION --- This certificate is an end-entity cert. Unable to remove end-entity certificates from a device."
+                            };
+                        }
+                        
                         // Create client to connect to device
                         _logger.LogTrace("Creating Api Rest Client...");
                         var client = new AxisHttpClient(config, config.CertificateStoreDetails);
                         _logger.LogTrace("Api Rest Client Created...");
 
-                        // Get needed information from config
-                        string alias = config.JobCertificate.Alias;
-
                         // Remove certificate with alias from the device
-                        client.RemoveCertificate(alias);
+                        client.RemoveCACertificate(alias);
 
                         break;
                     }
