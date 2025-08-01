@@ -1,0 +1,17 @@
+{
+  "apiVersion": "{API_VERSION}",
+  "method": "configureClient",
+  "params": {
+    "server":
+    {
+      "protocol": "ssl",
+      "host": "{HOST}"
+    },
+    "clientId":"{CLIENT_ID}",
+    "cleanSession": false,
+    "ssl": {
+      "clientCertID": "{ALIAS}",
+      "validateServerCert": false
+    }
+  }
+}
