@@ -1,5 +1,5 @@
 <h1 align="center" style="border-bottom: none">
-    Integration Template Universal Orchestrator Extension
+    AXIS IP Camera Universal Orchestrator Extension
 </h1>
 
 <p align="center">
@@ -40,13 +40,13 @@ TODO Overview is a required section
 This integration is compatible with Keyfactor Universal Orchestrator version 10.1 and later.
 
 ## Support
-The Integration Template Universal Orchestrator extension is community open source and there is **no SLA**. Keyfactor will address issues as resources become available.
+The AXIS IP Camera Universal Orchestrator extension is supported by Keyfactor. If you require support for any issues or have feature request, please open a support ticket by either contacting your Keyfactor representative or via the Keyfactor Support Portal at https://support.keyfactor.com.
 
-> To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab. If you want to contribute bug fixes or additional enhancements, use the **[Pull requests](../../pulls)** tab.
+> If you want to contribute bug fixes or additional enhancements, use the **[Pull requests](../../pulls)** tab.
 
 ## Requirements & Prerequisites
 
-Before installing the Integration Template Universal Orchestrator extension, we recommend that you install [kfutil](https://github.com/Keyfactor/kfutil). Kfutil is a command-line tool that simplifies the process of creating store types, installing extensions, and instantiating certificate stores in Keyfactor Command.
+Before installing the AXIS IP Camera Universal Orchestrator extension, we recommend that you install [kfutil](https://github.com/Keyfactor/kfutil). Kfutil is a command-line tool that simplifies the process of creating store types, installing extensions, and instantiating certificate stores in Keyfactor Command.
 
 
 TODO Requirements is an optional section. If this section doesn't seem necessary on initial glance, please delete it. Refer to the docs on [Confluence](https://keyfactor.atlassian.net/wiki/x/SAAyHg) for more info
@@ -54,7 +54,7 @@ TODO Requirements is an optional section. If this section doesn't seem necessary
 
 ## MOST Certificate Store Type
 
-To use the Integration Template Universal Orchestrator extension, you **must** create the MOST Certificate Store Type. This only needs to happen _once_ per Keyfactor Command instance.
+To use the AXIS IP Camera Universal Orchestrator extension, you **must** create the MOST Certificate Store Type. This only needs to happen _once_ per Keyfactor Command instance.
 
 
 
@@ -162,9 +162,9 @@ the Keyfactor Command Portal
 
 ## Installation
 
-1. **Download the latest Integration Template Universal Orchestrator extension from GitHub.**
+1. **Download the latest AXIS IP Camera Universal Orchestrator extension from GitHub.**
 
-    Navigate to the [Integration Template Universal Orchestrator extension GitHub version page](https://github.com/Keyfactor/axis-ipcamera-orchestrator/releases/latest). Refer to the compatibility matrix below to determine whether the `net6.0` or `net8.0` asset should be downloaded. Then, click the corresponding asset to download the zip archive.
+    Navigate to the [AXIS IP Camera Universal Orchestrator extension GitHub version page](https://github.com/Keyfactor/axis-ipcamera-orchestrator/releases/latest). Refer to the compatibility matrix below to determine whether the `net6.0` or `net8.0` asset should be downloaded. Then, click the corresponding asset to download the zip archive.
 
    | Universal Orchestrator Version | Latest .NET version installed on the Universal Orchestrator server | `rollForward` condition in `Orchestrator.runtimeconfig.json` | `axis-ipcamera-orchestrator` .NET version to download |
    | --------- | ----------- | ----------- | ----------- |
@@ -183,7 +183,7 @@ the Keyfactor Command Portal
     * **Default on Windows** - `C:\Program Files\Keyfactor\Keyfactor Orchestrator\extensions`
     * **Default on Linux** - `/opt/keyfactor/orchestrator/extensions`
 
-3. **Create a new directory for the Integration Template Universal Orchestrator extension inside the extensions directory.**
+3. **Create a new directory for the AXIS IP Camera Universal Orchestrator extension inside the extensions directory.**
 
     Create a new directory called `axis-ipcamera-orchestrator`.
     > The directory name does not need to match any names used elsewhere; it just has to be unique within the extensions directory.
