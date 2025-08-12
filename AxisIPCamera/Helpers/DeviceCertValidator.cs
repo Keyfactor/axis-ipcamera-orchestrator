@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -13,14 +14,23 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 {
     public static class DeviceCertValidator
     {
+        /// <summary>
+        /// This method is a custom HTTP validator that performs the following logic:
+        /// 1. Checks the SSL cert against the file of Axis-only cert chains
+        /// a) If the cert chain is validated, we have an Axis device ID cert --- go ahead and validate the serial number
+        /// aa) If the serial number provided for the 'Store Path' doesn't match the value provided for the "SERIALNUMBER"
+        ///     attribute in the DN, deny the session
+        /// ab) If the serial number does match, proceed with the session --- Return TRUE
+        /// 2. If the SSL cert chain is NOT validated against the Axis-only cert chain, check the Trust Store and perform normal SSL validation
+        /// </summary>
         public static Func<HttpRequestMessage, X509Certificate2?, X509Chain?, SslPolicyErrors, bool> GetValidator(
             string expectedValue, ILogger logger)
         {
             return (message, cert, chain, sslPolicyErrors) =>
             {
                 bool customChainValid = false;
-                bool sslErrors = false;
                 bool subjectErrors = false;
+                bool sslErrors = false;
                 StringBuilder sslMessage = new StringBuilder();
                 StringBuilder subjectMessage = new StringBuilder();
                 
@@ -30,10 +40,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     customChain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
                     
                     // VALIDATION 1: Verify the cert chain against the AXIS PKI --- Did this cert come off an AXIS PKI?
-                    logger.LogInformation($"Performing Cert Validator Check #1: Verify the cert chain against a custom chain of AXIS PKI certs...");
+                    logger.LogTrace($"Performing Cert Validator Check #1: Verify the cert chain against a custom chain of AXIS PKI certs...");
                     
                     // Load custom trusted certs
-                    // TODO: How to ensure the below path doesn't change?
                     var trustedCerts =
                         LoadTrustedCertsFromFile(
                             "C:\\Program Files\\Keyfactor\\Keyfactor Orchestrator\\extensions\\AxisIPCamera\\Files\\Axis.Trust");
@@ -46,20 +55,27 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     // at a trusted root in the OS store
                     customChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
 
+                    if (null == cert)
+                    {
+                        logger.LogError("SSL Cert is null");
+                        return false;
+                    }
+                    
+                    // Attempt to build the SSL cert against the custom trust chain
                     customChainValid = customChain.Build(cert);
                     
                     // VALIDATION 2: If the cert came off the AXIS PKI, we need to validate the SERIALNUMBER in the Subject DN
                     // Otherwise, proceed with default SSL validation. We don't need to perform VALIDATION 2 if the cert did not come from the AXIS PKI.
                     if (customChainValid)
                     {
-                        // Verify the cert Subject contains the validating attribute and it matches the expected value
+                        // Verify the SSL cert Subject DN contains the validating attribute and it matches the expected value
                         logger.LogInformation($"Cert chain is valid!");
-                        logger.LogInformation($"Performing Cert Validator Check #2: Check the subject for SERIALNUMBER and verify it matches the expected value...");
+                        logger.LogTrace($"Performing Cert Validator Check #2: Check the subject for SERIALNUMBER and verify it matches the expected value...");
                         
                         var subjectDn = new X500DistinguishedName(cert.SubjectName);
                         var subjectString = subjectDn.Name;
                     
-                        logger.LogTrace($"Device ID cert SubjectDN: {subjectString}");
+                        logger.LogTrace($"Device ID cert Subject DN: {subjectString}");
 
                         var decodedSubject = subjectDn.Decode(X500DistinguishedNameFlags.UseNewLines);
                         var subjectLines = decodedSubject.Split('\n');
@@ -76,9 +92,15 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                                 if (snValue != expectedValue)
                                 {
                                     subjectErrors = true;
-                                    logger.LogTrace($"SERIALNUMBER attribute value does not match the expected value '{expectedValue}'");
+                                    logger.LogTrace($"SERIALNUMBER attribute value does NOT match the expected value '{expectedValue}'");
                                     subjectMessage.Append(
                                         $"SERIALNUMBER attribute value does not match the expected value '{expectedValue}'");
+                                    return false;
+                                }
+                                else
+                                {
+                                    logger.LogTrace($"SERIALNUMBER attribute value matches expected value! Proceed...");
+                                    return true;
                                 }
                             }
                         }
@@ -136,18 +158,19 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                         }
                     }
                     
+                    if (subjectErrors)
+                    {
+                        //throw new CertificateSubjectValidationException(subjectMessage.ToString());
+                        return false;
+                    }
+                    
+                    
                     if (sslErrors)
                     {
                         //throw new CertificateSslException(sslMessage.ToString());
                         return false;
                     }
                     
-                    if (subjectErrors)
-                    {
-                        //throw new CertificateSubjectValidationException(subjectMessage.ToString());
-                        return false;
-                    }
-
                     logger.LogInformation("Certificate chain and subject validated.");
                     return true;
                 }
