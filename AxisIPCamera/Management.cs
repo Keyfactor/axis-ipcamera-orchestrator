@@ -13,6 +13,7 @@ using Newtonsoft.Json;
 
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
+using Keyfactor.Orchestrators.Extensions.Interfaces;
 
 namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
 {
@@ -20,13 +21,15 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
     {
         private readonly ILogger _logger;
         
-        public Management()
-        {
-            _logger = LogHandler.GetClassLogger<Management>();
-        }
-        
         //Necessary to implement IManagementJobExtension but not used.  Leave as empty string.
         public string ExtensionName => "";
+
+        public IPAMSecretResolver Resolver;
+        public Management(IPAMSecretResolver resolver)
+        {
+            _logger = LogHandler.GetClassLogger<Management>();
+            Resolver = resolver;
+        }
 
         //Job Entry Point
         public JobResult ProcessJob(ManagementJobConfiguration config)
@@ -97,9 +100,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         }
 
                         // Create client to connect to device
-                        _logger.LogTrace("Creating Api Rest Client...");
-                        var client = new AxisHttpClient(config, config.CertificateStoreDetails);
-                        _logger.LogTrace("Api Rest Client Created...");
+                        _logger.LogTrace("Creating Api HTTP Client...");
+                        var client = new AxisHttpClient(config, config.CertificateStoreDetails, Resolver);
+                        _logger.LogTrace("Api HTTP Client Created...");
                         
                         // Ignore the 'Overwrite' flag; Currently NOT supporting overwriting an existing CA cert with the same alias.
                         // The existing CA cert needs to be deleted first and then the new CA cert can be added with the same alias.
@@ -180,9 +183,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         }
                         
                         // Create client to connect to device
-                        _logger.LogTrace("Creating Api Rest Client...");
-                        var client = new AxisHttpClient(config, config.CertificateStoreDetails);
-                        _logger.LogTrace("Api Rest Client Created...");
+                        _logger.LogTrace("Creating Api HTTP Client...");
+                        var client = new AxisHttpClient(config, config.CertificateStoreDetails, Resolver);
+                        _logger.LogTrace("Api HTTP Client Created...");
 
                         // Remove certificate with alias from the device
                         client.RemoveCACertificate(alias);

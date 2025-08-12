@@ -1,20 +1,21 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Reflection;
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Runtime.ConstrainedExecution;
+using System.Text;
+using System.Xml;
+
 using Microsoft.Extensions.Logging;
-using System.Threading;
-using System.Threading.Tasks;
-using Keyfactor.Logging;
-using Keyfactor.Orchestrators.Extensions;
-using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
 using Newtonsoft.Json;
 using RestSharp;
 using RestSharp.Authenticators;
-using System.Xml;
+
+using Keyfactor.Logging;
+using Keyfactor.Orchestrators.Extensions;
+using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
+using Keyfactor.Orchestrators.Extensions.Interfaces;
+using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers;
 
 /* AxisHttpClient.cs
  * ---------------------------------------------------------------------------------------------------
@@ -53,112 +54,76 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         private readonly RestClient _httpClient;
         private ILogger Logger { get; }
 
-        public AxisHttpClient(JobConfiguration config, CertificateStore store)
+        public AxisHttpClient(JobConfiguration config, CertificateStore store, IPAMSecretResolver resolver)
         {
             try
             {
+                var errorContext = new CertificateErrorContext();
+                
                 Logger = LogHandler.GetClassLogger<AxisHttpClient>();
-                Logger.MethodEntry();
-
-                // TODO REMOVE
-                bool vetDevice = true;
-
+                Logger.LogTrace("Entered AxisHttpClient constructor.");
                 Logger.LogTrace("Initializing Axis IP Camera HTTP Client");
 
-                var baseRestClientUrl =
-                    (config.UseSSL) ? $"https://{store.ClientMachine}" : $"http://{store.ClientMachine}";
-
-                // TODO: Need to consider onboarding of camera
+                //TODO; REMOVE var baseRestClientUrl =
+                    //(config.UseSSL) ? $"https://{store.ClientMachine}" : $"http://{store.ClientMachine}";
+                // NOTE: Ignoring the default config.UseSSL custom field --- we will always connect to the device via HTTPS
+                var baseRestClientUrl = $"https://{store.ClientMachine}";
+                
                 Logger.LogDebug($"Base HTTP Client URL: {baseRestClientUrl}");
 
-                // If vetting the device, initialize custom HTTP handler for onboarding of device
+                // Initialize custom HTTP handler to validate device identity
                 RestClientOptions options = null;
-                if (vetDevice)
+                Logger.LogTrace($"Adding custom SSL cert validator to the HTTP client options...");
+                var handler = new HttpClientHandler
                 {
-                    Logger.LogInformation($"Vet device: {vetDevice} --- Looking at custom cert validator");
-                    var handler = new HttpClientHandler
-                    {
-                        ServerCertificateCustomValidationCallback =
-                            DeviceCertValidator.GetValidator(store.StorePath, Logger)
-                    };
+                    ServerCertificateCustomValidationCallback =
+                        DeviceCertValidator.GetValidator(store.StorePath, errorContext, Logger)
+                };
 
-                    // Initialize HTTP client options with the base URL and custom cert validator
-                    options = new RestClientOptions(baseRestClientUrl)
-                    {
-                        ConfigureMessageHandler = _ => handler
-                    };
-                }
-                else
+                // Initialize HTTP client options with the base URL and custom SSL cert validator
+                options = new RestClientOptions(baseRestClientUrl)
                 {
-                    // Initialize HTTP client options with the base URL
-                    options = new RestClientOptions(baseRestClientUrl);
-                    options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
-                }
+                    ConfigureMessageHandler = _ => handler
+                };
 
                 // Add Basic Auth username and password credentials
                 Logger.LogTrace("Adding Basic Auth Credentials to the HTTP client options...");
 
+                string username = PAMUtilities.ResolvePAMField(resolver, Logger, "API Username", config.ServerUsername);
+                string password = PAMUtilities.ResolvePAMField(resolver, Logger, "API Password", config.ServerPassword);
+                
                 // TODO: Do we want to remove this log statement in PRODUCTION?
-                Logger.LogDebug($"Username: {config.ServerUsername}, Password: {config.ServerPassword}");
+                Logger.LogDebug($"Username: {username}, Password: {password}");
                 options.Authenticator = new HttpBasicAuthenticator(config.ServerUsername, config.ServerPassword);
 
                 // Add SSL validation
-                Logger.LogTrace("Checking for SSL validation...");
-                Logger.LogDebug($"Use SSL: {config.UseSSL}");
-
-                Logger.LogTrace("Turning off SSL validation --- FOR TESTING ONLY");
-
-                // TODO: Enable this flag in PRODUCTION
-                //if (config.UseSSL)
-                //{
-                // TODO FOR TESTING: options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
-                //}
+                Logger.LogTrace("Validating connection to the device...");
 
                 _httpClient = new RestClient(options);
+                var request = new RestRequest("/"); // Initiates the TLS handshake to retrieve the server cert
+                var response = _httpClient.Execute(request);
 
-                // TODO FOR TESTING
-                if (vetDevice)
+                // Build the list of errors to log to the console
+                StringBuilder errorSb = new StringBuilder();
+                if (errorContext.HasErrors)
                 {
-                    var request = new RestRequest("/"); // Initiates the TLS handshake to retrieve the server cert
-                    var response = _httpClient.Execute(request);
-                    Logger.LogTrace($"Response status: {response.StatusCode}");
-
-                    /*if (!response.IsSuccessful)
+                    foreach (var error in errorContext.Errors)
                     {
-                        if (response.StatusCode == 0 && response.ErrorException != null)
-                        {
-                            // Likely caused by TLS/Cert validation failure
-                            Logger.LogError(response.ErrorException, "TLS handshake or certificate validation failed.");
-                            throw new Exception("INVALID DEVICE --- Cert chain validation failed.",
-                                response.ErrorException);
-                        }
-
-                        Logger.LogError("Request failed. Status: {Status}, Message: {Message}",
-                            response.StatusCode, response.ErrorMessage);
-
-                        throw new Exception("Request failed: " + response.ErrorMessage);
-                    }*/
+                        errorSb.AppendLine(error);
+                    }
+                    throw new Exception(errorSb.ToString());
                 }
-
+                
+                Logger.LogTrace($"Connection to the device response status code: {response.StatusCode}");
 
                 Logger.LogTrace("Completed Initialization of Axis IP Camera HTTP Client");
 
-                Logger.MethodExit();
-            }
-            catch (CertificateSslException e1)
-            {
-                Logger.LogError("Certificate SSL validation failed: " + LogHandler.FlattenException(e1));
-                throw;
-            }
-            catch (CertificateSubjectValidationException e2)
-            {
-                Logger.LogError("Subject validation failed: " + LogHandler.FlattenException(e2));
-                throw;
+                Logger.LogTrace("Leaving AxisHttpClient constructor.");
             }
             catch (Exception e)
             {
-                Logger.LogError("Error in Constructor AxisRestClient(): " + LogHandler.FlattenException(e));
-                throw;
+                Logger.LogError("Error initializing Axis IP Camera HTTP Client: " + LogHandler.FlattenException(e));
+                throw new Exception($"Device identity could not be verified successfully --- {e.Message}");
             }
         }
 
@@ -988,7 +953,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                             break;
                     }
 
-                    Logger.LogDebug($"Bound Certificate Alias: {boundCertAlias}");
+                    Logger.LogDebug($"Bound certificate alias for '{certUsageString}': {boundCertAlias}");
 
                     Logger.MethodExit();
                 }

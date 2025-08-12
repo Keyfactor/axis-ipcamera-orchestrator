@@ -2,13 +2,13 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
-using Keyfactor.Logging;
-using Keyfactor.Orchestrators.Extensions;
-using Keyfactor.Orchestrators.Common.Enums;
 
 using Microsoft.Extensions.Logging;
-
 using Newtonsoft.Json;
+
+using Keyfactor.Logging;
+using Keyfactor.Orchestrators.Extensions;
+using Keyfactor.Orchestrators.Extensions.Interfaces;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
 
@@ -17,19 +17,21 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
     public class Reenrollment : IReenrollmentJobExtension
     {
         private readonly ILogger _logger;
-        public Reenrollment()
-        {
-            _logger = LogHandler.GetClassLogger<Reenrollment>();
-        }
         
         //Necessary to implement IReenrollmentJobExtension but not used.  Leave as empty string.
         public string ExtensionName => "";
+        
+        public IPAMSecretResolver Resolver;
+        
+        public Reenrollment(IPAMSecretResolver resolver)
+        {
+            _logger = LogHandler.GetClassLogger<Reenrollment>();
+            Resolver = resolver;
+        }
 
         //Job Entry Point
         public JobResult ProcessJob(ReenrollmentJobConfiguration config, SubmitReenrollmentCSR submitReenrollment)
         {
-            var backupFlag = false;
-            
             try
             {
                 _logger.MethodEntry();
@@ -65,7 +67,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 }
                 
                 _logger.LogTrace("Create HTTPS client to connect to device");
-                var client = new AxisHttpClient(config, config.CertificateStoreDetails);
+                var client = new AxisHttpClient(config, config.CertificateStoreDetails, Resolver);
 
                 // Get current binding for reenrollment certificate usage provided
                 _logger.LogTrace($"Check '{certUsage}' binding for same alias");
@@ -78,7 +80,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     {
                         _logger.LogDebug($"Alias '{reenrollAlias}' provided for reenrollment matches alias '{boundAlias}' currently bound " +
                                          $"to certificate usage type {certUsage}");
-                        backupFlag = true;
                         
                         // TODO - If possible: Create backup of the existing certificate
                         // For now, throw an exception

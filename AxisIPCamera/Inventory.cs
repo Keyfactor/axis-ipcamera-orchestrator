@@ -1,30 +1,35 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
 using Keyfactor.Logging;
 using Keyfactor.Orchestrators.Common.Enums;
 using Keyfactor.Orchestrators.Extensions;
-
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
+using Keyfactor.Orchestrators.Extensions.Interfaces;
 
 namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
 { 
     public class Inventory : IInventoryJobExtension
     {
         private readonly ILogger _logger;
-        public Inventory()
-        {
-            _logger = LogHandler.GetClassLogger<Inventory>();
-        }
-        
+
         // Necessary to implement IInventoryJobExtension but not used.  Leave as empty string.
         public string ExtensionName => "";
 
-        //Job Entry Point
+        public IPAMSecretResolver Resolver;
+        
+        public Inventory(IPAMSecretResolver resolver)
+        {
+            _logger = LogHandler.GetClassLogger<Inventory>();
+            Resolver = resolver;
+        }
+        
+        // Job Entry Point
         public JobResult ProcessJob(InventoryJobConfiguration config, SubmitInventoryUpdate submitInventory)
         {
             List<CurrentInventoryItem> inventoryItems = new List<CurrentInventoryItem>();
@@ -36,14 +41,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 
                 _logger.LogTrace($"Begin Inventory for Client Machine {config.CertificateStoreDetails.ClientMachine}...");
                 _logger.LogDebug($"Inventory Config: {JsonConvert.SerializeObject(config)}");
-                _logger.LogDebug($"Client Machine: {config.CertificateStoreDetails.ClientMachine}");
                 
                 _logger.LogTrace("Create HTTPS client to connect to device");
-                var client = new AxisHttpClient(config, config.CertificateStoreDetails);
-                
-                // TESTING custom fields
-                var props = config.CertificateStoreDetails.Properties;
-                _logger.LogDebug($"Here are the store properties: {props}");
+                var client = new AxisHttpClient(config, config.CertificateStoreDetails, Resolver);
 
                 // Perform CA cert inventory
                 _logger.LogTrace("Retrieve all CA certificates");

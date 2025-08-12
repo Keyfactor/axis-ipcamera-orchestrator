@@ -12,6 +12,11 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
             Errors.Add(error);
         }
 
+        public void Insert(int index, string error)
+        {
+            Errors.Insert(index, error);
+        }
+
         public bool HasErrors => Errors.Any();
     }
 }
