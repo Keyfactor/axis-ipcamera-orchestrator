@@ -2,7 +2,7 @@
 
 namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
 {
-    public class ApiResponse
+    public class RestApiResponse
     {
        [JsonProperty("status")] public Constants.Status Status { get; set; }
     }
@@ -16,6 +16,11 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
     public class ErrorData
     {
         [JsonProperty("status")] public Constants.Status Status { get; set; }
+        [JsonProperty("error")] public Error ErrorInfo { get; set; }
+    }
+
+    public class CgiApiResponse
+    {
         [JsonProperty("error")] public Error ErrorInfo { get; set; }
     }
     
