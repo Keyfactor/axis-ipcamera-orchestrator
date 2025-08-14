@@ -33,7 +33,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
         public static string MQTTAliasKeyName = "clientCertID";
         
         // Below are the relative file paths to the SOAP and CGI API request body templates
-        // NOTE: The 'Files' directory should be located in the same directory as the AxisIPCamera.dll
+        // ** NOTE: The 'Files' directory should be located in the same directory as the AxisIPCamera.dll
         public static string GetHttpsTemplate = $"Files\\GetHttpsBinding.xml";
         public static string GetIEEETemplate  = $"Files\\GetIEEEBinding.xml";
         public static string GetMQTTTemplate  = $"Files\\GetMQTTBinding.json";
@@ -51,7 +51,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
             Undefined
         }
 
-        // Note: There may be more keystore types depending on the Axis camera model
+        // ** NOTE: There may be more keystore types depending on the Axis camera model
         public enum Keystore
         {
             TEE0, // Trusted Environment
@@ -74,7 +74,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
         /// <summary>
         /// Maps the Keyfactor Command-provided key algorithm and size to string representation
         /// the device can interpret.
-        /// **NOTE: These values may need updated depending on the target camera OS.
+        /// ** NOTE: These values may need updated depending on the target camera OS.
         /// </summary>
         /// <param name="keyAlgorithm">i.e. RSA, ECP</param>
         /// <param name="keySize">i.e. 2048, 256</param>

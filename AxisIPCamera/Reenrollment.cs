@@ -17,8 +17,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
     public class Reenrollment : IReenrollmentJobExtension
     {
         private readonly ILogger _logger;
-        
-        //Necessary to implement IReenrollmentJobExtension but not used.  Leave as empty string.
         public string ExtensionName => "";
         
         public IPAMSecretResolver Resolver;
@@ -29,7 +27,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             Resolver = resolver;
         }
 
-        //Job Entry Point
+        // Job Entry Point
         public JobResult ProcessJob(ReenrollmentJobConfiguration config, SubmitReenrollmentCSR submitReenrollment)
         {
             try
@@ -38,10 +36,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 
                 _logger.LogTrace($"Begin Reenrollment for Client Machine {config.CertificateStoreDetails.ClientMachine}");
                 _logger.LogDebug($"Reenrollment Config: {JsonConvert.SerializeObject(config)}");
-                _logger.LogDebug($"Client Machine: {config.CertificateStoreDetails.ClientMachine}");
 
                 // Log each key-value pair in the Job Properties for debugging
-                _logger.LogDebug("Begin Job Properties:");
+                _logger.LogDebug("Begin Job Properties ---");
                 foreach (var itm in config.JobProperties)
                 {
                     _logger.LogDebug($"{itm.Key}:{itm.Value}");
@@ -125,6 +122,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         throw new Exception(
                             "No value provided in the Subject for 'CN'. This is required for HTTPS certificates.");
                     }
+                    _logger.LogTrace($"Extracted CN attribute from the Subject: {cnMatch.Groups[1].Value}");
                     
                     // Extract the IP address from the Client Machine
                     var ipMatch = Regex.Match(config.CertificateStoreDetails.ClientMachine,
@@ -135,6 +133,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         throw new Exception(
                             "Value provided for the Client Machine does not match IPv4 format.");
                     }
+                    _logger.LogTrace($"Extracted IP Address from the Client Machine: { ipMatch.Groups["ip"].Value}");
 
                     sansList.Add("DNS:" + cnMatch.Groups[1].Value);
                     sansList.Add("IP:" + ipMatch.Groups["ip"].Value);
@@ -160,7 +159,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 */
                 
                 // Build PEM content
-                // **NOTE: The static newline (\n) characters are required in the API request
+                // ** NOTE: The static newline (\n) characters are required in the API request
                 StringBuilder pemBuilder = new StringBuilder();
                 pemBuilder.Append(@"-----BEGIN CERTIFICATE-----\n");
                 string s = Convert.ToBase64String(x509Cert.RawData, Base64FormattingOptions.InsertLineBreaks);
@@ -174,9 +173,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 
                 _logger.LogTrace($"Setting '{certUsage}' binding to alias '{reenrollAlias}'");
                 client.SetCertUsageBinding(reenrollAlias, certUsageEnum);
-
-                // TODO: Should we do a delete of original cert here?
-                
             }
             catch (Exception ex)
             {

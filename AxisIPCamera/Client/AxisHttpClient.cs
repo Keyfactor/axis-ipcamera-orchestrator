@@ -66,21 +66,21 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
                 //TODO; REMOVE var baseRestClientUrl =
                     //(config.UseSSL) ? $"https://{store.ClientMachine}" : $"http://{store.ClientMachine}";
-                // NOTE: Ignoring the default config.UseSSL custom field --- we will always connect to the device via HTTPS
+                // ** NOTE: Ignoring the default config.UseSSL custom field --- we will always connect to the device via HTTPS
                 var baseRestClientUrl = $"https://{store.ClientMachine}";
                 
                 Logger.LogDebug($"Base HTTP Client URL: {baseRestClientUrl}");
 
                 // Initialize custom HTTP handler to validate device identity
                 RestClientOptions options = null;
-                Logger.LogTrace($"Adding custom SSL cert validator to the HTTP client options...");
+                Logger.LogTrace($"Adding custom TLS cert validator to the HTTP client options...");
                 var handler = new HttpClientHandler
                 {
                     ServerCertificateCustomValidationCallback =
                         DeviceCertValidator.GetValidator(store.StorePath, errorContext, Logger)
                 };
 
-                // Initialize HTTP client options with the base URL and custom SSL cert validator
+                // Initialize HTTP client options with the base URL and custom TLS cert validator
                 options = new RestClientOptions(baseRestClientUrl)
                 {
                     ConfigureMessageHandler = _ => handler
