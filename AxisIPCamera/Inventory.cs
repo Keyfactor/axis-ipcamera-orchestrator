@@ -99,8 +99,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     else
                     {
                         // If no match, reset the cert usage
-                        _logger.LogDebug($"Client cert with alias '{c.Alias}' has no associated certificate usage");
-                        c.Binding = Constants.CertificateUsage.None;
+                        _logger.LogDebug($"Client cert with alias '{c.Alias}' has no known certificate usage");
+                        c.Binding = Constants.CertificateUsage.Other;
                     }
                 }
 
@@ -209,18 +209,11 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             }
         }
         
-        //TODO: Add parameters for other binding aliases
         private CurrentInventoryItem BuildInventoryItem(Certificate cert)
         {
             try
             {
                 _logger.MethodEntry();
-                
-                // Get the cert usage as a string
-                //string certUsageString = GetCertUsageAsString(cert.Binding);
-
-                //Dictionary<string, object> parameters = new Dictionary<string, object>();
-                //parameters.Add("CertUsage",certUsageString);
 
                 var certList = new List<string>();
                 certList.Add(cert.CertAsPem);

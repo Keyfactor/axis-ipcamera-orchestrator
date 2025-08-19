@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -7,24 +8,24 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 using Keyfactor.Logging;
-using Keyfactor.Orchestrators.Extensions;
-using Keyfactor.Orchestrators.Extensions.Interfaces;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
+using Keyfactor.Orchestrators.Extensions;
+using Keyfactor.Orchestrators.Extensions.Interfaces;
 
 namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
 {
     public class Reenrollment : IReenrollmentJobExtension
     {
         private readonly ILogger _logger;
-        public string ExtensionName => "";
         
-        public IPAMSecretResolver Resolver;
+        private readonly IPAMSecretResolver _resolver;
+        public string ExtensionName => "";
         
         public Reenrollment(IPAMSecretResolver resolver)
         {
             _logger = LogHandler.GetClassLogger<Reenrollment>();
-            Resolver = resolver;
+            _resolver = resolver;
         }
 
         // Job Entry Point
@@ -43,7 +44,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 {
                     _logger.LogDebug($"{itm.Key}:{itm.Value}");
                 }
-                _logger.LogDebug("End Job Properties");
+                _logger.LogDebug("--- End Job Properties");
                 
                 // Get required reenrollment fields
                 string certUsage = config.JobProperties[Constants.CertUsageParamName].ToString() ?? throw new Exception($"{Constants.CertUsageParamDisplay} returned null");
@@ -51,20 +52,18 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 string keyAlgorithm = config.JobProperties["keyType"].ToString() ?? throw new Exception("Key Algorithm returned null");
                 string keySize = config.JobProperties["keySize"].ToString() ?? throw new Exception("Key Size returned null");
                 string subject = config.JobProperties["subjectText"].ToString() ?? throw new Exception("Subject returned null");
-                // IGNORING --- bool overwrite = Convert.ToBoolean(config.JobProperties["Overwrite"]);
-                
                 string reenrollAlias = config.Alias ?? throw new Exception("Alias returned null");
                 _logger.LogDebug($"Alias: {reenrollAlias}");
                 
-                // Prevent reenrollment on Trust certificates or those without a certificate usage
-                if (certUsageEnum is Constants.CertificateUsage.Trust or Constants.CertificateUsage.None)
+                // Prevent reenrollment on Trust certificates
+                if (certUsageEnum is Constants.CertificateUsage.Trust)
                 {
                     throw new Exception(
                         "Reenrollment cannot be performed on a store when the certificate usage is marked as 'Trust' or 'None'");
                 }
                 
                 _logger.LogTrace("Create HTTPS client to connect to device");
-                var client = new AxisHttpClient(config, config.CertificateStoreDetails, Resolver);
+                var client = new AxisHttpClient(config, config.CertificateStoreDetails, _resolver);
 
                 // Get current binding for reenrollment certificate usage provided
                 _logger.LogTrace($"Check '{certUsage}' binding for same alias");

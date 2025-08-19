@@ -62,14 +62,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 
                 Logger = LogHandler.GetClassLogger<AxisHttpClient>();
                 Logger.LogTrace("Entered AxisHttpClient constructor.");
-                Logger.LogTrace("Initializing Axis IP Camera HTTP Client");
-
-                //TODO; REMOVE var baseRestClientUrl =
-                    //(config.UseSSL) ? $"https://{store.ClientMachine}" : $"http://{store.ClientMachine}";
+                Logger.LogTrace("Initializing Axis IP Camera HTTP client");
+                
                 // ** NOTE: Ignoring the default config.UseSSL custom field --- we will always connect to the device via HTTPS
                 var baseRestClientUrl = $"https://{store.ClientMachine}";
                 
-                Logger.LogDebug($"Base HTTP Client URL: {baseRestClientUrl}");
+                Logger.LogDebug($"Base HTTP client URL: {baseRestClientUrl}");
 
                 // Initialize custom HTTP handler to validate device identity
                 RestClientOptions options = null;
@@ -88,7 +86,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
                 // Add Basic Auth username and password credentials
                 Logger.LogTrace("Adding Basic Auth Credentials to the HTTP client options...");
-
                 string username = PAMUtilities.ResolvePAMField(resolver, Logger, "API Username", config.ServerUsername);
                 string password = PAMUtilities.ResolvePAMField(resolver, Logger, "API Password", config.ServerPassword);
                 
@@ -115,9 +112,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 }
                 
                 Logger.LogTrace($"Connection to the device response status code: {response.StatusCode}");
-
                 Logger.LogTrace("Completed Initialization of Axis IP Camera HTTP Client");
-
                 Logger.LogTrace("Leaving AxisHttpClient constructor.");
             }
             catch (Exception e)

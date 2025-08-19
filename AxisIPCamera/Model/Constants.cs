@@ -47,7 +47,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
             IEEE,
             MQTT,
             Trust,
-            None,
+            Other,
             Undefined
         }
 
@@ -124,9 +124,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
                     certUsageString = "Trust";
                     break;
                 }
-                case Constants.CertificateUsage.None:
+                case Constants.CertificateUsage.Other:
                 {
-                    certUsageString = "None";
+                    certUsageString = "Other";
                     break;
                 }
                 default:
@@ -150,17 +150,17 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
         /// <returns>Enum representation of certificate usage that is declared in Constants.cs</returns>
         public static CertificateUsage GetCertUsageAsEnum(string certUsageString)
         {
-            var certUsageEnum = CertificateUsage.None;
+            var certUsageEnum = CertificateUsage.Other;
             switch (certUsageString)
             {
                 case "HTTPS":
                 {
-                    certUsageEnum = Constants.CertificateUsage.Https;
+                    certUsageEnum = CertificateUsage.Https;
                     break;
                 }
                 case "MQTT":
                 {
-                    certUsageEnum = Constants.CertificateUsage.MQTT;
+                    certUsageEnum = CertificateUsage.MQTT;
                     break;
                 }
                 case "IEEE802.X":
@@ -170,12 +170,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
                 }
                 case "Trust":
                 {
-                    certUsageEnum = CertificateUsage.IEEE;
+                    certUsageEnum = CertificateUsage.Trust;
                     break;
                 }
-                case "None":
+                case "Other":
                 {
-                    certUsageEnum = CertificateUsage.None;
+                    certUsageEnum = CertificateUsage.Other;
                     break;
                 }
                 default:
@@ -190,7 +190,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
             
             return certUsageEnum;
         }
-
+        
         public static void ValidateCsr(string csrPem)
         {
             try

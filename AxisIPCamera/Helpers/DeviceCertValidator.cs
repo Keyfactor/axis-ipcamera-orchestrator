@@ -48,7 +48,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
                 }
                 
                 // VALIDATION 1: Verify the TLS cert chain against the AXIS PKI --- Did this cert come off an AXIS PKI?
-                // This check will be done with SKI/AKI matching against the chain
+                // This check will be done with SKI/AKI matching against the custom chain
                 logger.LogTrace($"Performing Cert Validator Check #1: Verify the TLS cert chain against custom chain of AXIS PKI certs...");
                 
                 // Load custom trusted certs
