@@ -1,187 +1,179 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client;
-using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
-using Keyfactor.Logging;
-using Keyfactor.Orchestrators.Extensions;
-using Keyfactor.Orchestrators.Common.Enums;
 
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
+using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client;
+using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
+using Keyfactor.Logging;
+using Keyfactor.Orchestrators.Common.Enums;
+using Keyfactor.Orchestrators.Extensions;
+using Keyfactor.Orchestrators.Extensions.Interfaces;
+
 namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
-{
-    // The Inventory class implementes IAgentJobExtension and is meant to find all of the certificates in a given certificate store on a given server
-    //  and return those certificates back to Keyfactor for storing in its database.  Private keys will NOT be passed back to Keyfactor Command 
+{ 
     public class Inventory : IInventoryJobExtension
     {
         private readonly ILogger _logger;
-        
-        public Inventory()
-        {
-            _logger = LogHandler.GetClassLogger<Inventory>();
-        }
-        
-        //Necessary to implement IInventoryJobExtension but not used.  Leave as empty string.
+
+        // Necessary to implement IInventoryJobExtension but not used.  Leave as empty string.
         public string ExtensionName => "";
 
-        //Job Entry Point
+        public IPAMSecretResolver Resolver;
+        
+        public Inventory(IPAMSecretResolver resolver)
+        {
+            _logger = LogHandler.GetClassLogger<Inventory>();
+            Resolver = resolver;
+        }
+        
+        // Job Entry Point
         public JobResult ProcessJob(InventoryJobConfiguration config, SubmitInventoryUpdate submitInventory)
         {
-            //METHOD ARGUMENTS...
-            //config - contains context information passed from KF Command to this job run:
-            //
-            // config.Server.Username, config.Server.Password - credentials for orchestrated server - use to authenticate to certificate store server.
-            //
-            // config.ServerUsername, config.ServerPassword - credentials for orchestrated server - use to authenticate to certificate store server.
-            // config.CertificateStoreDetails.ClientMachine - server name or IP address of orchestrated server
-            // config.CertificateStoreDetails.StorePath - location path of certificate store on orchestrated server
-            // config.CertificateStoreDetails.StorePassword - if the certificate store has a password, it would be passed here
-            // config.CertificateStoreDetails.Properties - JSON string containing custom store properties for this specific store type
-            
-            //List<AgentCertStoreInventoryItem> is the collection that the interface expects to return from this job.  It will contain a collection of certificates found in the store along with other information about those certificates
             List<CurrentInventoryItem> inventoryItems = new List<CurrentInventoryItem>();
-
+            var warningFlag = false;
+            
             try
             {
-                //Code logic to:
-                // 1) Connect to the orchestrated server (config.CertificateStoreDetails.ClientMachine) containing the certificate store to be inventoried (config.CertificateStoreDetails.StorePath)
-                // 2) Custom logic to retrieve certificates from certificate store.
-                // 3) Add certificates (no private keys) to the collection below.  If multiple certs in a store comprise a chain, the Certificates array will house multiple certs per InventoryItem.  If multiple certs
-                //     in a store comprise separate unrelated certs, there will be one InventoryItem object created per certificate.
-
-                //**** Will need to uncomment the block below and code to the extension's specific needs.  This builds the collection of certificates and related information that will be passed back to the KF Orchestrator service and then Command.
-                //inventoryItems.Add(new AgentCertStoreInventoryItem()
-                //{
-                //    ItemStatus = OrchestratorInventoryItemStatus.Unknown, //There are other statuses, but Command can determine how to handle new vs modified certificates
-                //    Alias = {valueRepresentingChainIdentifier}
-                //    PrivateKeyEntry = true|false //You will not pass the private key back, but you can identify if the main certificate of the chain contains a private key in the store
-                //    UseChainLevel = true|false,  //true if Certificates will contain > 1 certificate, main cert => intermediate CA cert => root CA cert.  false if Certificates will contain an array of 1 certificate
-                //    Certificates = //Array of single X509 certificates in Base64 string format (certificates if chain, single cert if not), something like:
-                //    ****************************
-                //          foreach(X509Certificate2 certificate in certificates)
-                //              certList.Add(Convert.ToBase64String(certificate.Export(X509ContentType.Cert)));
-                //              certList.ToArray();
-                //    ****************************
-                //});
-                
                 _logger.MethodEntry();
-                _logger.LogTrace("Begin Inventory...");
-                _logger.LogDebug($"Inventory Config {JsonConvert.SerializeObject(config)}");
-                _logger.LogDebug($"Client Machine: {config.CertificateStoreDetails.ClientMachine}");
                 
-                _logger.LogTrace("Creating Api Rest Client...");
-                var client = new AxisRestClient(config, config.CertificateStoreDetails);
-                _logger.LogTrace("Api Rest Client Created...");
+                _logger.LogTrace($"Begin Inventory for Client Machine {config.CertificateStoreDetails.ClientMachine}...");
+                _logger.LogDebug($"Inventory Config: {JsonConvert.SerializeObject(config)}");
+                
+                _logger.LogTrace("Create HTTPS client to connect to device");
+                var client = new AxisHttpClient(config, config.CertificateStoreDetails, Resolver);
 
                 // Perform CA cert inventory
+                _logger.LogTrace("Retrieve all CA certificates");
                 CACertificateData data1 = client.ListCACertificates();
                 
-                // Perform cert inventory
+                // Perform client cert inventory
+                _logger.LogTrace("Retrieve all client certificates");
                 CertificateData data2 = client.ListCertificates();
                 
                 // Get the default keystore
+                _logger.LogTrace("Retrieve the default keystore");
                 Constants.Keystore defaultKeystore = client.GetDefaultKeystore();
                 string defaultKeystoreString = Enum.GetName(typeof(Constants.Keystore), defaultKeystore);
                 _logger.LogDebug($"Inventory - Default keystore: {defaultKeystoreString}");
                 
                 // Create new list of client certs that are only tied to the default keystore
+                _logger.LogTrace("Filtering list of client certificates to those stored in the default keystore");
                 CertificateData data2DefKey = new CertificateData
                 {
                     Status = Constants.Status.Success,
                     Certs = new List<Certificate>()
                 };
-                foreach (Certificate cert in data2.Certs)
+                foreach (var cert in data2.Certs.Where(cert => cert.Keystore == defaultKeystore))
                 {
-                    if (cert.Keystore == defaultKeystore)
-                    {
-                        data2DefKey.Certs.Add(cert);
-                    }
+                    data2DefKey.Certs.Add(cert);
                 }
                 
-                // Lookup the certificate used for HTTPS
-                string httpAlias = client.GetBinding(Constants.CertificateUsage.Https);
+                _logger.LogTrace("Retrieve all certificate bindings for each possible certificate usage type");
+                // Lookup the certificate used for HTTPS, MQTT, IEEE802.X
+                string httpAlias = client.GetCertUsageBinding(Constants.CertificateUsage.Https);
+                string ieeeAlias = client.GetCertUsageBinding(Constants.CertificateUsage.IEEE);
+                string mqttAlias = client.GetCertUsageBinding(Constants.CertificateUsage.MQTT);
                 
-                // Set the binding on the client certificates object if the aliases match
+                // Set the binding on the client certificates object if the aliases found for each certificate usage match
+                _logger.LogTrace("Mark each client certificate with the appropriate certificate usage type");
                 foreach (Certificate c in data2DefKey.Certs)
                 {
                     if (c.Alias.Equals(httpAlias))
                     {
+                        _logger.LogDebug($"Client cert with alias '{c.Alias}' is used for HTTPS");
                         c.Binding = Constants.CertificateUsage.Https;
+                    }
+                    else if (c.Alias.Equals(ieeeAlias))
+                    {
+                        _logger.LogDebug($"Client cert with alias '{c.Alias}' is used for IEEE");
+                        c.Binding = Constants.CertificateUsage.IEEE;
+                    }
+                    else if (c.Alias.Equals(mqttAlias))
+                    {
+                        _logger.LogDebug($"Client cert with alias '{c.Alias}' is used for MQTT");
+                        c.Binding = Constants.CertificateUsage.MQTT;
                     }
                     else
                     {
-                        // Reset the other certs
-                        c.Binding = Constants.CertificateUsage.Unknown;
+                        // If no match, reset the cert usage
+                        _logger.LogDebug($"Client cert with alias '{c.Alias}' has no known certificate usage");
+                        c.Binding = Constants.CertificateUsage.Other;
                     }
                 }
 
+                // Build the list of CA certificates and add to the InventoryItems object that is sent back to Command
                 inventoryItems.AddRange(data1.CACerts.Select(
                     c =>
                     {
                         try
                         {
-                            _logger.LogTrace($"Building Cert List Inventory Item: {c.Alias} Pem: {c.CertAsPem}");
+                            _logger.LogDebug($"Building CA Cert List Inventory Item: {c.Alias} Pem: {c.CertAsPem}");
                             return BuildInventoryItem(c);
                         }
                         catch 
                         {
-                            _logger.LogWarning($"Could not fetch the certificate: {c?.Alias} associated with description {c?.CertAsPem}.");
-                            /*sb.Append(
-                                $"Could not fetch the certificate: {c?.AliasName} associated with issuer {c?.Certificates}.{Environment.NewLine}");
-                            warningFlag = true;*/
+                            _logger.LogWarning($"Could not fetch the CA certificate: {c?.Alias} associated with description {c?.CertAsPem}.");
+                            warningFlag = true;
                             return new CurrentInventoryItem();
                         }
                     }).Where(item => item?.Certificates != null).ToList());
                 
+                // Build the list of client certificates and add to the InventoryItems object that is sent back to Command
                 inventoryItems.AddRange(data2DefKey.Certs.Select(
                     c =>
                     {
                         try
                         {
-                            _logger.LogTrace($"Building Cert List Inventory Item: {c.Alias} Pem: {c.CertAsPem}");
+                            _logger.LogTrace($"Building Client Cert List Inventory Item: {c.Alias} Pem: {c.CertAsPem}");
                             return BuildInventoryItem(c);
                         }
                         catch 
                         {
-                            _logger.LogWarning($"Could not fetch the certificate: {c?.Alias} associated with description {c?.CertAsPem}.");
-                            /*sb.Append(
-                                $"Could not fetch the certificate: {c?.AliasName} associated with issuer {c?.Certificates}.{Environment.NewLine}");
-                            warningFlag = true;*/
+                            _logger.LogWarning($"Could not fetch the client certificate: {c?.Alias} associated with description {c?.CertAsPem}.");
+                            warningFlag = true;
                             return new CurrentInventoryItem();
                         }
                     }).Where(item => item?.Certificates != null).ToList());
-
                 
-                submitInventory.Invoke(inventoryItems);
-               
+                _logger.MethodExit();
 
-
-
-                
-
+                if (warningFlag)
+                {
+                    _logger.LogTrace("Found Warning during Inventory Item Creation");
+                    return new JobResult()
+                    {
+                        Result = OrchestratorJobStatusJobResult.Warning, 
+                        JobHistoryId = config.JobHistoryId,
+                        FailureMessage = "Could not fetch 1 or more certificates. Refer to the log for more detailed information."
+                    };
+                }
             }
-            catch (Exception ex)
+            catch (Exception e1)
             {
-                //Status: 2=Success, 3=Warning, 4=Error
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Inventory Job Failed During Inventory Item Creation: {ex.Message}" };
+                // Status: 2=Success, 3=Warning, 4=Error
+                return new JobResult() { Result = OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, 
+                    FailureMessage = $"Inventory Job Failed During Inventory Item Creation: {e1.Message} - Refer to logs for more detailed information." };
             }
 
             try
             {
-                //Sends inventoried certificates back to KF Command
+                // Sends inventoried certificates back to KF Command
                 _logger.LogTrace("Submitting Inventory To Keyfactor via submitInventory.Invoke");
                 submitInventory.Invoke(inventoryItems);
                 _logger.LogTrace("Submitted Inventory To Keyfactor via submitInventory.Invoke");
-                //Status: 2=Success, 3=Warning, 4=Error
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Success, JobHistoryId = config.JobHistoryId };
+                
+                // Status: 2=Success, 3=Warning, 4=Error
+                return new JobResult() { Result = OrchestratorJobStatusJobResult.Success, JobHistoryId = config.JobHistoryId };
             }
-            catch (Exception ex)
+            catch (Exception e2)
             {
-                // NOTE: if the cause of the submitInventory.Invoke exception is a communication issue between the Orchestrator server and the Command server, the job status returned here
+                // ** NOTE: If the cause of the submitInventory.Invoke exception is a communication issue between the Orchestrator server and the Command server, the job status returned here
                 //  may not be reflected in Keyfactor Command.
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Inventory Job Failed During Inventory Item Submission: {ex.Message}" };
+                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, 
+                    FailureMessage = $"Inventory Job Failed During Inventory Item Submission: {e2.Message} - Refer to logs for more detailed information." };
             }
         }
 
@@ -198,15 +190,16 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     Alias = caCert.Alias,
                     Certificates =  caCertList,
                     ItemStatus = OrchestratorInventoryItemStatus.Unknown,
-                    PrivateKeyEntry = false, // CA certificates will not have private keys in the cert store
-                    UseChainLevel = false, // Will only ever have 1 cert level
+                    PrivateKeyEntry = false, // CA certificates will not have private keys associated
+                    UseChainLevel = false, // Will only ever have 1 single cert
                     Parameters = new Dictionary<string, object>()
                     {
-                        {"CertUsage", "Trust"}
+                        {Constants.CertUsageParamName, Constants.GetCertUsageAsString(Constants.CertificateUsage.Trust)}
                     }
                 };
 
                 _logger.MethodExit();
+                
                 return item;
             }
             catch (Exception e)
@@ -216,18 +209,11 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             }
         }
         
-        //TODO: Add parameters for other binding aliases
         private CurrentInventoryItem BuildInventoryItem(Certificate cert)
         {
             try
             {
                 _logger.MethodEntry();
-                
-                // Get the cert usage as a string
-                string certUsageString = GetCertUsageAsString(cert.Binding);
-
-                Dictionary<string, object> parameters = new Dictionary<string, object>();
-                parameters.Add("CertUsage",certUsageString);
 
                 var certList = new List<string>();
                 certList.Add(cert.CertAsPem);
@@ -237,51 +223,22 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     Certificates =  certList,
                     ItemStatus = OrchestratorInventoryItemStatus.Unknown,
                     PrivateKeyEntry = true, // Client certs will have private keys on the camera
-                    UseChainLevel = false, // Will only ever have 1 cert level
-                    Parameters = parameters
+                    UseChainLevel = false, // Will only ever have 1 single cert
+                    Parameters = new Dictionary<string, object>()
+                    {
+                        {Constants.CertUsageParamName, Constants.GetCertUsageAsString(cert.Binding)}
+                    }
                 };
 
                 _logger.MethodExit();
+                
                 return item;
             }
             catch (Exception e)
             {
-                _logger.LogError($"Error Occurred in Inventory.BuildInventoryItem for Certificates: {LogHandler.FlattenException(e)}");
+                _logger.LogError($"Error Occurred in Inventory.BuildInventoryItem for Client Certificates: {LogHandler.FlattenException(e)}");
                 throw;
             }
-        }
-
-        private string GetCertUsageAsString(Constants.CertificateUsage certUsageEnum)
-        {
-            Constants.CertificateUsage target = certUsageEnum;
-            string certUsageString = "";
-            switch (target)
-            {
-                    case Constants.CertificateUsage.Https:
-                    {
-                        certUsageString = "HTTPS";
-                        break;
-                    }
-                    case Constants.CertificateUsage.MQTT:
-                    {
-                        certUsageString = "MQTT";
-                        break;
-                    }
-                    case Constants.CertificateUsage.IEEE:
-                    {
-                        certUsageString = "IEEE802.X";
-                        break;
-                    }
-                    case Constants.CertificateUsage.Unknown:
-                    {
-                        certUsageString = "None";
-                        break;
-                    }
-                default:
-                    break;
-            }
-
-            return certUsageString;
         }
     }
 }
