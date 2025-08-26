@@ -17,6 +17,4 @@ It is expected that there be one (1) certificate store managed per AXIS network 
 
 PLACEHOLDER
 
-## Caveats
 
-PLACEHOLDER

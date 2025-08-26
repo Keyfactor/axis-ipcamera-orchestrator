@@ -62,3 +62,7 @@ These values must match or the session will be denied.
 
 > [!IMPORTANT]
 > Make sure the PKI trust for certificates enrolled via ODKG is installed on the orchestrator server's local machine certificate store.
+
+## Caveats
+
+PLACEHOLDER
