@@ -1,79 +1,90 @@
 {
-  "$schema": "https://keyfactor.github.io/integration-manifest-schema.json",
+  "$schema": "https://keyfactor.github.io/v2/integration-manifest-schema.json",
   "integration_type": "orchestrator",
-  "name": "Integration Template",
-  "status": "prototype",
-  "support_level": "community",
-  "description": "This project is meant to be a template to quickly build a basic integration product build. Currently in dev, a work in progress,",
-  "link_github": false,
+  "name": "AXIS IP Camera",
+  "status": "pilot",
+  "support_level": "kf-supported",
+  "release_dir": "AxisIPCamera\\bin\\Release",
+  "release_project":"AxisIPCamera\\AxisIPCamera.csproj",
   "update_catalog": false,
-  "release_dir": "UPDATE-THIS-WITH-PATH-TO-BINARY-BUILD-FOLDER",
+  "link_github": false,
+  "description": "The Axis IP Camera Orchestrator Extension is used to inventory, manage Trust certs, and enroll for client certificates that can be bound to endpoints.",
   "about": {
     "orchestrator": {
       "UOFramework": "10.1",
       "keyfactor_platform_version": "9.10",
-      "pam_support": false,
-      "win": {
-        "supportsCreateStore": false,
-        "supportsDiscovery": false,
-        "supportsManagementAdd": false,
-        "supportsManagementRemove": false,
-        "supportsReenrollment": false,
-        "supportsInventory": false
-      },
-      "linux": {
-        "supportsCreateStore": false,
-        "supportsDiscovery": false,
-        "supportsManagementAdd": false,
-        "supportsManagementRemove": false,
-        "supportsReenrollment": false,
-        "supportsInventory": false
-      },
+      "pam_support": true,
       "store_types": [
         {
-          "Name": "MyOrchestratorStoreType",
-          "ShortName": "MOST",
-          "Capability": "MOST",
-          "LocalStore": false,
+          "Name": "Axis IP Camera",
+          "ShortName": "AxisIPCamera",
+          "Capability": "AxisIPCamera",
+          "ServerRequired": true,
+          "BlueprintAllowed": false,
+          "PowerShell": false,
+          "CustomAliasAllowed": "Required",
+          "PrivateKeyAllowed": "Forbidden",
           "SupportedOperations": {
-            "Add": false,
+            "Add": true,
             "Create": false,
-            "Discovery": true,
-            "Enrollment": false,
-            "Remove": false
+            "Discovery": false,
+            "Enrollment": true,
+            "Remove": true
           },
-          "Properties": [
-            {
-              "Name": "CustomField1",
-              "DisplayName": "CustomField1",
-              "Type": "String",
-              "DependsOn": "",
-              "DefaultValue": "default",
-              "Required": true
-            },
-            {
-              "Name": "CustomField2",
-              "DisplayName": "CustomField2",
-              "Type": "String",
-              "DependsOn": "",
-              "DefaultValue": null,
-              "Required": true
-            }
-          ],
-          "EntryParameters": [],
           "PasswordOptions": {
             "EntrySupported": false,
             "StoreRequired": false,
             "Style": "Default"
           },
+          "Properties": [
+            {
+              "Name": "ServerUsername",
+              "DisplayName": "Server Username",
+              "Type": "Secret",
+              "DependsOn": "",
+              "DefaultValue": "",
+              "Required": false,
+              "Description": "Enter the username of the configured \"service\" user on the camera"
+            },
+            {
+              "Name": "ServerPassword",
+              "DisplayName": "Server Password",
+              "Type": "Secret",
+              "DependsOn": "",
+              "DefaultValue": "",
+              "Required": false,
+              "Description": "Enter the password of the configured \"service\" user on the camera"
+            },
+            {
+              "Name": "ServerUseSsl",
+              "DisplayName": "Use SSL",
+              "Type": "Bool",
+              "DependsOn": "",
+              "DefaultValue": "true",
+              "Required": true,
+              "Description": "Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. This should always be \"True\""
+            }
+          ],
+          "EntryParameters": [
+            {
+              "Name": "CertUsage",
+              "DisplayName": "Certificate Usage",
+              "Type": "MultipleChoice",
+              "RequiredWhen": {
+                "HasPrivateKey": false,
+                "OnAdd": true,
+                "OnRemove": false,
+                "OnReenrollment": true
+              },
+              "Options": "HTTPS,IEEE802.X,MQTT,Trust,Other",
+              "Description": "The Certificate Usage to assign to the cert after enrollment. Can be left 'Other' to be assigned later."
+            }
+          ],
+          "ClientMachineDescription": "The IP address of the Camera. Sample is \"192.167.231.174:44444\". Include the port if necessary.",
+          "StorePathDescription": "Enter the Serial Number of the camera e.g. `0b7c3d2f9e8a`",
           "StorePathType": "",
           "StorePathValue": "",
-          "PrivateKeyAllowed": "Forbidden",
-          "JobProperties": [],
-          "ServerRequired": true,
-          "PowerShell": false,
-          "BlueprintAllowed": false,
-          "CustomAliasAllowed": "Forbidden"
+          "JobProperties": []
         }
       ]
     }
