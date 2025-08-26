@@ -31,7 +31,25 @@
 
 ## Overview
 
-TODO Overview is a required section
+The Axis IP Camera Orchestrator Extension remotely manages certificates on Axis IP Network Cameras. This
+orchestrator extension inventories certificates on the camera's certificate store, and it also supports adding new client-server certificates and adding/removing CA certificates.
+New client-server certificates are created in the Axis camera certificate store via On Device Key Generation (ODKG aka Reenrollment).
+This means that certificates cannot be directly added to the Axis camera, but instead the keypair is generated on the Axis device using a keystore and a certificate is issued for that keypair via a CSR submitted to Command for enrollment. 
+This workflow is completely automated in the Axis IP Camera Orchestrator Extension. CA certificates can be added to the camera from uploaded CA certificates in Command.
+
+The Axis IP Camera Orchestrator Extension supports the following use cases:
+
+1. Inventory of client-server & CA certificates 
+2. Enrollment of client-server certificates with ability to bind the certificate for a specific usage*
+3. Ability to remove CA certificates from the camera
+4. Ability to add CA certificates to the camera
+
+The Axis IP Camera Orchestrator Extension DOES NOT support the following use cases:
+
+1. Ability to remove client-server certificates from the camera
+2. Ability to add client-server certificates to the camera
+
+\* Currently supported certificate usages include: **HTTPS, IEEE802.X, MQTT**
 
 
 
@@ -49,7 +67,10 @@ The AXIS IP Camera Universal Orchestrator extension is supported by Keyfactor. I
 Before installing the AXIS IP Camera Universal Orchestrator extension, we recommend that you install [kfutil](https://github.com/Keyfactor/kfutil). Kfutil is a command-line tool that simplifies the process of creating store types, installing extensions, and instantiating certificate stores in Keyfactor Command.
 
 
-TODO Requirements is an optional section. If this section doesn't seem necessary on initial glance, please delete it. Refer to the docs on [Confluence](https://keyfactor.atlassian.net/wiki/x/SAAyHg) for more info
+1. Out of the box, an Axis IP Network Camera will typically come with an **Administrator** account. It is 
+recommended to create a new account specifically for executing API calls. This account will need \"Administrator\" 
+privileges since the orchestrator extension is capable of making configuration changes, such as installing and removing certificates.
+2. Currently supports AXIS M2035-LE Bullet Camera, AXIS OS version 12.2.62. Has not been tested with any other firmware version.
 
 
 ## AxisIPCamera Certificate Store Type
@@ -58,16 +79,21 @@ To use the AXIS IP Camera Universal Orchestrator extension, you **must** create 
 
 
 
-TODO Overview is a required section
-TODO Global Store Type Section is an optional section. If this section doesn't seem necessary on initial glance, please delete it. Refer to the docs on [Confluence](https://keyfactor.atlassian.net/wiki/x/SAAyHg) for more info
+The Axis IP Camera certificate store type represents a certificate store on an Axis network camera
+that maintains two separate collections of certificates:
+* Client-server certificates (certs with private keys)
+* CA certificates
 
+It is expected that there be one (1) certificate store managed per Axis network camera.
 
 
 
 
 #### Axis IP Camera Requirements
 
-TODO Requirements is an optional section. If this section doesn't seem necessary on initial glance, please delete it. Refer to the docs on [Confluence](https://keyfactor.atlassian.net/wiki/x/SAAyHg) for more info
+1. User Account with \`Administrator\` privileges and password to access the camera
+2. Camera serial number
+3. Camera IP address (and likely port number)
 
 
 
@@ -218,15 +244,30 @@ the Keyfactor Command Portal
 
 ## Post Installation
 
-TODO Post Installation is an optional section. If this section doesn't seem necessary on initial glance, please delete it. Refer to the docs on [Confluence](https://keyfactor.atlassian.net/wiki/x/SAAyHg) for more info
+The Axis IP Camera Orchestrator Extension *always* connects to an Axis IP Network Camera using an HTTPS connection, regardless
+of whether the \`Use SSL\` option on the certificate store is set to **false**. This is to ensure the orchestrator connection
+is connecting to a valid camera.
+
+All network cameras come pre-loaded with device ID certificates, and one of these certificates is configured on the camera to be provided in the TLS handshake
+to the client.
+
+On the initial HTTPS connection to the camera, the orchestrator extension will not trust the device ID certificate, and will therefore
+deny the session. In order to trust the device ID certificate, you must provide the root and intermediate CA certificate from the AXIS PKI chain to a custom trust.
+
+Steps to Create the Custom Trust:
+
+1. Once the DLLs from GitHub are installed, create two (2) files in `C:\Program Files\Keyfactor\Keyfactor Orchestrator\extensions\AxisIPCamera\Files` folder with the below names:
+   * **Axis.Trust**
+   * **Axis.Intermediate**
+
+2. Copy and paste the PEM contents of the AXIS PKI Root for the device ID configured for HTTPS access into the **Axis.Root** file
+3. Copy and paste the PEM contents of the AXIS PKI Intermediate for the device ID configured for HTTPS access into the **Axis.Intermediate** file
+
+\* AXIS Device ID CA certificates can be found here: https://www.axis.com/support/public-key-infrastructure-repository
 
 
 ## Defining Certificate Stores
 
-
-TODO Global Store Type Section is an optional section. If this section doesn't seem necessary on initial glance, please delete it. Refer to the docs on [Confluence](https://keyfactor.atlassian.net/wiki/x/SAAyHg) for more info
-
-TODO Certificate Store Configuration is an optional section. If this section doesn't seem necessary on initial glance, please delete it. Refer to the docs on [Confluence](https://keyfactor.atlassian.net/wiki/x/SAAyHg) for more info
 
 
 ### Store Creation
@@ -313,12 +354,6 @@ Please refer to the **Universal Orchestrator (remote)** usage section ([PAM prov
 ## Discovering Certificate Stores with the Discovery Job
 TODO Discovery is an optional section. If this section doesn't seem necessary on initial glance, please delete it. Refer to the docs on [Confluence](https://keyfactor.atlassian.net/wiki/x/SAAyHg) for more info
 
-
-### Axis IP Camera Discovery Job
-TODO Global Store Type Section is an optional section. If this section doesn't seem necessary on initial glance, please delete it. Refer to the docs on [Confluence](https://keyfactor.atlassian.net/wiki/x/SAAyHg) for more info
-
-
-TODO Discovery Job Configuration is an optional section. If this section doesn't seem necessary on initial glance, please delete it. Refer to the docs on [Confluence](https://keyfactor.atlassian.net/wiki/x/SAAyHg) for more info
 
 
 
