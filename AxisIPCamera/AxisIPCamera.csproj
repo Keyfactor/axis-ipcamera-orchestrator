@@ -45,7 +45,7 @@
 	</None>
 	
 	<None Update="Files\Axis.Trust">
-	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
 	</None>
   </ItemGroup>
 
