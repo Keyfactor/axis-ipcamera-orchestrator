@@ -34,7 +34,7 @@
 The AXIS IP Camera Orchestrator extension remotely manages certificates on AXIS IP Network Cameras. This
 orchestrator extension inventories certificates on the camera's certificate store, and it also supports adding new client-server certificates and adding/removing CA certificates.
 New client-server certificates are created in the AXIS camera certificate store via On Device Key Generation (ODKG aka Reenrollment).
-This means that certificates cannot be directly added to the Axis camera, but instead the keypair is generated on the AXIS device using a keystore and a certificate is issued for that keypair via a CSR submitted to Command for enrollment. 
+This means that certificates cannot be directly added to the AXIS camera, but instead the keypair is generated on the AXIS device and a certificate is issued for that keypair via a CSR submitted to Command for enrollment. 
 This workflow is completely automated in the AXIS IP Camera Orchestrator extension. CA certificates can be added to the camera from uploaded CA certificates in Command.
 
 ### Use Cases
@@ -51,7 +51,7 @@ The Axis IP Camera Orchestrator extension DOES NOT support the following use cas
 1. Ability to remove client-server certificates from the camera
 2. Ability to add client-server certificates to the camera
 
-\* Currently supported certificate usages include: **HTTPS, IEEE802.X, MQTT**
+\* Currently supported certificate usages include: **HTTPS**, **IEEE802.X**, **MQTT**, **Other**
 
 
 
@@ -273,10 +273,10 @@ These values must match or the session will be denied.
 
 > [!IMPORTANT]
 > You will want to replace the device ID certificate bound to the HTTP server with a CA-signed certificate. To do this,
-> you will need to schedule a reenrollment job and select "HTTPS" as the Certificate Usage.
+> you will need to schedule a Reenrollment job and select **HTTPS** as the Certificate Usage.
 
 > [!IMPORTANT]
-> After associating a CA-signed certificate with the HTTP server, you need to make sure the orchestrator server trusts the HTTPS certificate.
+> After associating a CA-signed certificate with the HTTP server via the Reenrollment job, you need to make sure the orchestrator server trusts the HTTPS certificate.
 > Therefore, you will need to install the full CA chain - including root and intermediate certificates - into the orchestrator server's local
 > certificate store.
 
@@ -369,7 +369,7 @@ Please refer to the **Universal Orchestrator (remote)** usage section ([PAM prov
 ### Certificate Usage
 
 Every certificate inventoried will have an Entry Parameter called \`Certificate Usage\`. 
-There are four (4) possible options:
+There are five (5) possible options:
 
 * **HTTPS**
 * **IEEE802.X**
@@ -384,8 +384,8 @@ There are four (4) possible options:
    is presented to the 802.1x radius server for authentication.
 3. MQTT
    - This certificate usage describes the client certificate used to authenticate the camera to the MQTT broker.
-   In this scenario, the camera connects to the MQTT broker over SSL and performs a TLS handshake. If a client certificate is provided,
-   the camera presents this client certificate to the MQTT broker.
+   In this scenario, the camera connects to the MQTT broker over SSL and performs a TLS handshake.
+   The camera presents this client certificate to the MQTT broker.
 4. Trust
    - This certificate usage describes a public certificate issued by a CA used to establish trust. 
 5. Other
@@ -407,7 +407,7 @@ There are four (4) possible options:
 
 ## Caveats
 
-> [!CAVEAT] Reenrollment jobs will not replace or remove a client-server certificate with the same alias. They will also not remove 
+> [!NOTE] Reenrollment jobs will not replace or remove a client-server certificate with the same alias. They will also not remove 
 > the original certificate if a particular \`Certificate Usage\` had an associated cert. Since the camera has limited storage,
 > it will be up to the user to remove any unused client-server certificates via the AXIS Network Camera GUI.
 
