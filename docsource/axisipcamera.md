@@ -38,7 +38,7 @@ There are five (5) possible options:
 5. Other
    - This certificate usage identifies all other certificates on the camera that do not fall under the pre-defined usages above.
 
-> [!NOTE]
+> [!NOTE] 
 > A Reenrollment (ODKG) job will not allow enrollment of certificates with **Trust** assigned as the \`Certificate Usage\`.
 > Trust CA certificates can be added to the camera via a Management - Add job.
 
