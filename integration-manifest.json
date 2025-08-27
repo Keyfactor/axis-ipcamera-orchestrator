@@ -43,7 +43,7 @@
               "Type": "Secret",
               "DependsOn": "",
               "DefaultValue": "",
-              "Required": false,
+              "Required": true,
               "Description": "Enter the username of the configured \"service\" user on the camera"
             },
             {
@@ -52,7 +52,7 @@
               "Type": "Secret",
               "DependsOn": "",
               "DefaultValue": "",
-              "Required": false,
+              "Required": true,
               "Description": "Enter the password of the configured \"service\" user on the camera"
             },
             {
