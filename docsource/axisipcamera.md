@@ -16,7 +16,7 @@ It is expected that there be one (1) certificate store managed per AXIS network 
 ## Certificate Usage
 
 Every certificate inventoried will have an Entry Parameter called \`Certificate Usage\`. 
-There are four (4) possible options:
+There are five (5) possible options:
 
 * **HTTPS**
 * **IEEE802.X**
@@ -31,8 +31,8 @@ There are four (4) possible options:
    is presented to the 802.1x radius server for authentication.
 3. MQTT
    - This certificate usage describes the client certificate used to authenticate the camera to the MQTT broker.
-   In this scenario, the camera connects to the MQTT broker over SSL and performs a TLS handshake. If a client certificate is provided,
-   the camera presents this client certificate to the MQTT broker.
+   In this scenario, the camera connects to the MQTT broker over SSL and performs a TLS handshake.
+   The camera presents this client certificate to the MQTT broker.
 4. Trust
    - This certificate usage describes a public certificate issued by a CA used to establish trust. 
 5. Other
