@@ -179,8 +179,8 @@ the Keyfactor Command Portal
 
    | Name | Display Name | Description | Type | Default Value/Options | Required |
    | ---- | ------------ | ---- | --------------------- | -------- | ----------- |
-   | ServerUsername | Server Username | Enter the username of the configured "service" user on the camera | Secret |  | 🔲 Unchecked |
-   | ServerPassword | Server Password | Enter the password of the configured "service" user on the camera | Secret |  | 🔲 Unchecked |
+   | ServerUsername | Server Username | Enter the username of the configured "service" user on the camera | Secret |  | ✅ Checked |
+   | ServerPassword | Server Password | Enter the password of the configured "service" user on the camera | Secret |  | ✅ Checked |
    | ServerUseSsl | Use SSL | Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. This should always be "True" | Bool | true | ✅ Checked |
 
    The Custom Fields tab should look like this:
