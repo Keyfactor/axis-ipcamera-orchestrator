@@ -246,26 +246,25 @@ the Keyfactor Command Portal
 
 ## Post Installation
 
-The AXIS IP Camera Orchestrator Extension *always* connects to an AXIS IP Network Camera using an HTTPS connection, regardless
-of whether the \`Use SSL\` option on the certificate store is set to **false**. This is to ensure the orchestrator connection
+The AXIS IP Camera Orchestrator Extension *always* connects to an AXIS IP Network Camera via HTTPS, regardless
+of whether the \`Use SSL\` option on the certificate store is set to **false** (*The \`Use SSL\` option cannot be removed). This ensures the orchestrator
 is connecting to a valid camera.
 
-All network cameras come pre-loaded with device ID certificates, and one of these certificates is configured on the camera to be provided in the TLS handshake
-to the client.
+All network cameras come pre-loaded with one (1) or more device ID certificates, and one of these certificates is configured on the camera to be provided in the TLS handshake
+to the client during an HTTPS request.
 
-On the initial HTTPS connection to the camera, the orchestrator extension will not trust the device ID certificate, and will therefore
-deny the session. 
+The orchestrator will not trust the device ID certificate, and will therefore deny the session to the camera.
 
-In order to trust the device ID certificate, you must provide the root and intermediate CA certificate from the AXIS PKI chain to a custom trust.
+To trust the device ID certificate, you must create a custom trust and add the root and intermediate CA certificates from the AXIS PKI chain to it.
 
 ### Steps to Create the Custom Trust:
 
-1. Once the DLLs from GitHub are installed, create two (2) files in `C:\Program Files\Keyfactor\Keyfactor Orchestrator\extensions\[AXIS IP Camera extension folder naem]\Files` folder with the below names:
+1. Once the DLLs from GitHub are installed, create two (2) files in `..\[AXIS IP Camera orchestrator extension folder name]\Files` folder with the below names:
    * **Axis.Trust**
    * **Axis.Intermediate**
 
-2. Copy and paste the PEM contents of the AXIS PKI Root for the device ID configured for HTTPS access into the **Axis.Root** file
-3. Copy and paste the PEM contents of the AXIS PKI Intermediate for the device ID configured for HTTPS access into the **Axis.Intermediate** file
+2. Copy and paste the PEM contents of the AXIS PKI root for the device ID cert configured for the HTTP server into the **Axis.Root** file
+3. Copy and paste the PEM contents of the AXIS PKI intermediate for the device ID configured for the HTTP server into the **Axis.Intermediate** file
 
 \* AXIS Device ID CA certificates can be found here: https://www.axis.com/support/public-key-infrastructure-repository
 
@@ -273,10 +272,13 @@ After the device ID is verified against the custom trust, the \`Store Path\` val
 These values must match or the session will be denied.
 
 > [!IMPORTANT]
-> As part of the device onboarding, it is expected that the operator schedule a reenrollment job and select "HTTPS" as the Certificate Usage so that a new CA-signed certificate is used for secure web access to the camera.
+> You will want to replace the device ID certificate bound to the HTTP server with a CA-signed certificate. To do this,
+> you will need to schedule a reenrollment job and select "HTTPS" as the Certificate Usage.
 
 > [!IMPORTANT]
-> Make sure the PKI trust for certificates enrolled via ODKG is installed on the orchestrator server's local machine certificate store.
+> After associating a CA-signed certificate with the HTTP server, you need to make sure the orchestrator server trusts the HTTPS certificate.
+> Therefore, you will need to install the full CA chain - including root and intermediate certificates - into the orchestrator server's local
+> certificate store.
 
 
 ## Defining Certificate Stores
@@ -366,13 +368,48 @@ Please refer to the **Universal Orchestrator (remote)** usage section ([PAM prov
 
 ### Certificate Usage
 
-PLACEHOLDER
+Every certificate inventoried will have an Entry Parameter called \`Certificate Usage\`. 
+There are four (4) possible options:
+
+* **HTTPS**
+* **IEEE802.X**
+* **MQTT**
+* **Trust**
+* **Other**
+
+1. HTTPS
+   - This certificate usage describes the certificate bound to the camera's HTTP web server for HTTPS communication (i.e. server certificate or SSL/TLS certificate).
+2. IEEE802.X
+   - This certificate usage describes the client certificate to authenticate the camera to a server using EAP-TLS. This client certificate
+   is presented to the 802.1x radius server for authentication.
+3. MQTT
+   - This certificate usage describes the client certificate used to authenticate the camera to the MQTT broker.
+   In this scenario, the camera connects to the MQTT broker over SSL and performs a TLS handshake. If a client certificate is provided,
+   the camera presents this client certificate to the MQTT broker.
+4. Trust
+   - This certificate usage describes a public certificate issued by a CA used to establish trust. 
+5. Other
+   - This certificate usage identifies all other certificates on the camera that do not fall under the pre-defined usages above.
+
+> [!NOTE]
+> A Reenrollment (ODKG) job will not allow enrollment of certificates with **Trust** assigned as the \`Certificate Usage\`.
+> Trust CA certificates can be added to the camera via a Management - Add job.
+
+> [!NOTE]
+> For a Reenrollment (ODKG) job, where the \`Certificate Usage\` assigned is **HTTPS**, IP and DNS are added as SANS
+> to the enrolled certificate.
+> 
+> IP = Client Machine configured for the certificate store (excluding any port)
+> 
+> DNS = CN set in the Subject DN
 
 
 
 ## Caveats
 
-PLACEHOLDER
+> [!CAVEAT] Reenrollment jobs will not replace or remove a client-server certificate with the same alias. They will also not remove 
+> the original certificate if a particular \`Certificate Usage\` had an associated cert. Since the camera has limited storage,
+> it will be up to the user to remove any unused client-server certificates via the AXIS Network Camera GUI.
 
 
 ## License
