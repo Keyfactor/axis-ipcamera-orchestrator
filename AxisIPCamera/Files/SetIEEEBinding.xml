@@ -1,0 +1,23 @@
+<SOAP-ENV:Envelope xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                   xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                   xmlns:tds="http://www.onvif.org/ver10/device/wsdl"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                   xmlns:onvif="http://www.onvif.org/ver10/schema"
+                   xmlns:tt="http://www.onvif.org/ver10/schema"
+                   xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope">
+    <SOAP-ENV:Body>
+        <tds:SetDot1XConfiguration xmlns="http://www.onvif.org/ver10/device/wsdl">
+            <Dot1XConfiguration>
+                <tt:Dot1XConfigurationToken>EAPTLS_WIRED</tt:Dot1XConfigurationToken>
+                <tt:Identity>identity</tt:Identity>
+                <tt:EAPMethod>13</tt:EAPMethod>
+                <tt:EAPMethodConfiguration>
+                    <tt:TLSConfiguration>
+                        <tt:CertificateID>{ALIAS}</tt:CertificateID>
+                    </tt:TLSConfiguration>
+                </tt:EAPMethodConfiguration>
+            </Dot1XConfiguration>
+        </tds:SetDot1XConfiguration>
+    </SOAP-ENV:Body>
+</SOAP-ENV:Envelope>

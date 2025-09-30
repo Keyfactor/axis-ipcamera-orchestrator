@@ -1,136 +1,161 @@
-﻿using System;
+﻿// Copyright 2025 Keyfactor
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
+// and limitations under the License.
+
+using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 using Keyfactor.Logging;
-using Keyfactor.Orchestrators.Extensions;
-
-using Microsoft.Extensions.Logging;
-
-using Newtonsoft.Json;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
+using Keyfactor.Orchestrators.Extensions;
+using Keyfactor.Orchestrators.Extensions.Interfaces;
 
 namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
 {
-    // The Reenrollment class implementes IAgentJobExtension and is meant to:
-    //  1) Generate a new public/private keypair locally
-    //  2) Generate a CSR from the keypair,
-    //  3) Submit the CSR to KF Command to enroll the certificate and retrieve the certificate back
-    //  4) Deploy the newly re-enrolled certificate to a certificate store
     public class Reenrollment : IReenrollmentJobExtension
     {
         private readonly ILogger _logger;
         
-        public Reenrollment()
+        private readonly IPAMSecretResolver _resolver;
+        public string ExtensionName => "";
+        
+        public Reenrollment(IPAMSecretResolver resolver)
         {
             _logger = LogHandler.GetClassLogger<Reenrollment>();
+            _resolver = resolver;
         }
-        
-        //Necessary to implement IReenrollmentJobExtension but not used.  Leave as empty string.
-        public string ExtensionName => "";
 
-        //Job Entry Point
+        // Job Entry Point
         public JobResult ProcessJob(ReenrollmentJobConfiguration config, SubmitReenrollmentCSR submitReenrollment)
         {
-            //METHOD ARGUMENTS...
-            //config - contains context information passed from KF Command to this job run:
-            //
-            // config.Server.Username, config.Server.Password - credentials for orchestrated server - use to authenticate to certificate store server.
-            //
-            // config.ServerUsername, config.ServerPassword - credentials for orchestrated server - use to authenticate to certificate store server.
-            // config.CertificateStoreDetails.ClientMachine - server name or IP address of orchestrated server
-            // config.CertificateStoreDetails.StorePath - location path of certificate store on orchestrated server
-            // config.CertificateStoreDetails.StorePassword - if the certificate store has a password, it would be passed here
-            // config.CertificateStoreDetails.Properties - JSON string containing custom store properties for this specific store type
-            //
-            // config.JobProperties = Dictionary of custom parameters to use in building CSR and placing enrolled certiciate in a the proper certificate store
-
-            //NLog Logging to c:\CMS\Logs\CMS_Agent_Log.txt
-            
             try
             {
                 _logger.MethodEntry();
-                _logger.LogDebug($"Begin Reenrollment...");
-                //Code logic to:
-                //  1) Generate a new public/private keypair locally from any config.JobProperties passed
-                //  2) Generate a CSR from the keypair (PKCS10),
-                //  3) Submit the CSR to KF Command to enroll the certificate using:
-                //      string resp = (string)submitEnrollmentRequest.Invoke(Convert.ToBase64String(PKCS10_bytes);
-                //      X509Certificate2 cert = new X509Certificate2(Convert.FromBase64String(resp));
-                //  4) Deploy the newly re-enrolled certificate (cert in #3) to a certificate store
                 
-                _logger.LogDebug($"Reenrollment Config {JsonConvert.SerializeObject(config)}");
-                _logger.LogDebug($"Client Machine: {config.CertificateStoreDetails.ClientMachine}");
-                
-                _logger.LogTrace("Creating Api Rest Client...");
-                var client = new AxisRestClient(config, config.CertificateStoreDetails);
-                _logger.LogTrace("Api Rest Client Created...");
+                _logger.LogTrace($"Begin Reenrollment for Client Machine {config.CertificateStoreDetails.ClientMachine}");
+                _logger.LogDebug($"Reenrollment Config: {JsonConvert.SerializeObject(config)}");
 
+                // Log each key-value pair in the Job Properties for debugging
+                _logger.LogDebug("Begin Job Properties ---");
                 foreach (var itm in config.JobProperties)
                 {
                     _logger.LogDebug($"{itm.Key}:{itm.Value}");
                 }
-                // Here are the job properties:
-                // entropy
-                // CertUsage
-                // keyType
-                // keySize
-                // subjectText
+                _logger.LogDebug("--- End Job Properties");
                 
                 // Get required reenrollment fields
-                // TODO: Add check for property so null exceptions aren't thrown
-                string alias = config.Alias;
-                string subject = config.JobProperties["subjectText"].ToString();
-                // This is actually a property on the config bool overwrite = Convert.ToBoolean(config.JobProperties["Overwrite"]);
-                string certUsage = config.JobProperties["CertUsage"].ToString();
-                string keyAlgorithm = config.JobProperties["keyType"].ToString();
-                string keySize = config.JobProperties["keySize"].ToString();
+                string certUsage = config.JobProperties[Constants.CertUsageParamName].ToString() ?? throw new Exception($"{Constants.CertUsageParamDisplay} returned null");
+                var certUsageEnum = Constants.GetCertUsageAsEnum(certUsage);
+                string keyAlgorithm = config.JobProperties["keyType"].ToString() ?? throw new Exception("Key Algorithm returned null");
+                string keySize = config.JobProperties["keySize"].ToString() ?? throw new Exception("Key Size returned null");
+                string subject = config.JobProperties["subjectText"].ToString() ?? throw new Exception("Subject returned null");
+                string reenrollAlias = config.Alias ?? throw new Exception("Alias returned null");
+                _logger.LogDebug($"Alias: {reenrollAlias}");
                 
-                _logger.LogDebug($"Alias: {alias}");
+                // Prevent reenrollment on Trust certificates
+                if (certUsageEnum is Constants.CertificateUsage.Trust)
+                {
+                    throw new Exception(
+                        "Reenrollment cannot be performed on a store when the certificate usage is marked as 'Trust' or 'None'");
+                }
                 
-                // TODO: If there is a certificate that is already bound to the certUsage and overwrite it NOT checked, what do we do here?
-                // 1) Throw an error, 2) Or just overwrite it by default, ignoring the override flag --- delete the previous one first
-                
-                // TODO: Add logic if the cert usage is a Trust Store, throw exception
-                
+                _logger.LogTrace("Create HTTPS client to connect to device");
+                var client = new AxisHttpClient(config, config.CertificateStoreDetails, _resolver);
+
+                // Get current binding for reenrollment certificate usage provided
+                _logger.LogTrace($"Check '{certUsage}' binding for same alias");
+                var boundAlias = client.GetCertUsageBinding(Constants.GetCertUsageAsEnum(certUsage));
+                if (!string.IsNullOrEmpty(boundAlias))
+                {
+                    _logger.LogDebug($"Alias currently bound to certificate usage type '{certUsage}': {boundAlias}");
+                    
+                    if (boundAlias == reenrollAlias)
+                    {
+                        _logger.LogDebug($"Alias '{reenrollAlias}' provided for reenrollment matches alias '{boundAlias}' currently bound " +
+                                         $"to certificate usage type {certUsage}");
+                        
+                        throw new Exception(
+                            $"Alias '{reenrollAlias}' already exists for certificate usage type {certUsage}. Reenroll using another alias.");
+                    }
+
+                    _logger.LogTrace($"Alias '{reenrollAlias}' provided for reenrollment differs from alias '{boundAlias}' currently bound " +
+                                     $"to certificate usage type {certUsage}. Proceeding...");
+                }
+                else
+                {
+                    _logger.LogDebug($"No alias currently bound to certificate usage type {certUsage}");
+                }
+
                 // Map the key type and key size from the job properties to a corresponding key type available on the device
-                // TODO: Redo the key type mappings
-                var keyType = Constants.MapKeyType(keyAlgorithm, keySize);
+                string keyType = Constants.MapKeyType(keyAlgorithm, keySize);
                 _logger.LogDebug($"Mapped Key Type: {keyType}");
                 if (keyType == "UNKNOWN")
                 {
                     throw new Exception(
-                        $"The key algorithm '{keyAlgorithm}' and key size '{keySize}' selected for reenrollment do not correspond to a valid key algorithm and" +
+                        $"The key algorithm '{keyAlgorithm}' and key size '{keySize}' selected for reenrollment " +
+                        $"do not correspond to a valid key algorithm and" +
                         $"key size on the device.");
                 }
                 
-                // TODO: Should we do a delete of original cert here?
-                
                 // Get the default keystore
-                var defaultKeystore = client.GetDefaultKeystore();
+                _logger.LogTrace("Retrieve the default keystore");
+                Constants.Keystore defaultKeystore = client.GetDefaultKeystore();
                 string defaultKeystoreString = Enum.GetName(typeof(Constants.Keystore), defaultKeystore);
-                //string keytypeString = Enum.GetName(typeof(Constants.KeyTypes), keyType);
-                _logger.LogDebug($"Default keystore: {defaultKeystoreString}");
-                _logger.LogDebug($"Assigned key type: {keyType}");
+                _logger.LogDebug($"Reenrollment - Default keystore: {defaultKeystoreString}");
                 
-                // TODO: Add logic to create different self-signed cert for non-HTTP cert usage
-                // Generate self-signed cert with private key on the device (*Include SANs)
-                string[] sans = new[] { "DNS:http.kfdemo.com" }; // TODO: Update this to read from Command
-                client.CreateSelfSignedCert(alias,keyType,defaultKeystoreString,subject,sans);
+                _logger.LogTrace("Generating self-signed cert with private key on device");
+                List<string> sansList = new List<string>();
+                if (certUsageEnum == Constants.CertificateUsage.Https)
+                {
+                    _logger.LogTrace("Extracting CN and IP address to add as SANs to the certificate");
+                    // Extract the CN from the Subject
+                    var cnMatch = Regex.Match(subject, @"CN=([^,]+)", RegexOptions.IgnoreCase);
+                    if (!cnMatch.Success)
+                    {
+                        _logger.LogTrace("No value provided in the Subject for 'CN'.");
+                        throw new Exception(
+                            "No value provided in the Subject for 'CN'. This is required for HTTPS certificates.");
+                    }
+                    _logger.LogTrace($"Extracted CN attribute from the Subject: {cnMatch.Groups[1].Value}");
+                    
+                    // Extract the IP address from the Client Machine
+                    var ipMatch = Regex.Match(config.CertificateStoreDetails.ClientMachine,
+                        @"^(?<ip>(?:\d{1,3}\.){3}\d{1,3})", RegexOptions.IgnoreCase);
+                    if (!ipMatch.Success)
+                    {
+                        _logger.LogTrace("Value provided for the Client Machine does not match IPv4 format.");
+                        throw new Exception(
+                            "Value provided for the Client Machine does not match IPv4 format.");
+                    }
+                    _logger.LogTrace($"Extracted IP Address from the Client Machine: { ipMatch.Groups["ip"].Value}");
+
+                    sansList.Add("DNS:" + cnMatch.Groups[1].Value);
+                    sansList.Add("IP:" + ipMatch.Groups["ip"].Value);
+                }
+                client.CreateSelfSignedCert(reenrollAlias,keyType,defaultKeystoreString,subject,sansList.ToArray());
                 
-                // Obtain CSR using self-signed cert
-                var csr = client.ObtainCSR(alias);
+                _logger.LogTrace("Obtaining CSR using self-signed certificate");
+                var csr = client.ObtainCSR(reenrollAlias);
                 _logger.LogDebug($"CSR: \n{csr}");
-                
-                // TODO: Validate the contents of the CSR
+
+                _logger.LogTrace("Validating CSR");
+                Constants.ValidateCsr(csr);
+                _logger.LogTrace("CSR is valid");
                 
                 // Submit CSR to be signed in Keyfactor
+                _logger.LogTrace("Submitting CSR to be signed in Command");
                 var x509Cert = submitReenrollment.Invoke(csr);
 
-                // TODO: Validate certificate returned from Keyfactor
-                
                 // Build PEM content
+                // ** NOTE: The static newline (\n) characters are required in the API request
                 StringBuilder pemBuilder = new StringBuilder();
                 pemBuilder.Append(@"-----BEGIN CERTIFICATE-----\n");
                 string s = Convert.ToBase64String(x509Cert.RawData, Base64FormattingOptions.InsertLineBreaks);
@@ -139,27 +164,17 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 pemBuilder.Append(@"\n-----END CERTIFICATE-----");
                 var pemCert = pemBuilder.ToString();
 
-                //pemCert = pemCert.Replace("\r", @"\n");
+                _logger.LogTrace($"Replacing self-signed cert '{reenrollAlias}' with the following cert: " + pemCert);
+                client.ReplaceCertificate(reenrollAlias,pemCert);
                 
-                
-                // Replace existing certificate on device
-                _logger.LogTrace($"Replacing cert '{alias}' with the following cert: " + pemCert);
-                
-                client.ReplaceCertificate(alias,pemCert);
-                
-                // Update the binding on the camera
-                // TODO: Add logic to change this based on the binding type
-                client.SetCertUsageBinding(alias, Constants.CertificateUsage.Https);
-
-
-                // Send the binding information back to Command
-
-
+                _logger.LogTrace($"Setting '{certUsage}' binding to alias '{reenrollAlias}'");
+                client.SetCertUsageBinding(reenrollAlias, certUsageEnum);
             }
             catch (Exception ex)
             {
                 //Status: 2=Success, 3=Warning, 4=Error
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = ex.Message };
+                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, 
+                    FailureMessage = $"Reenrollment Job Failed: {ex.Message} - Refer to logs for more detailed information." };
             }
 
             //Status: 2=Success, 3=Warning, 4=Error

@@ -5,13 +5,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
 // and limitations under the License.
 
-using Newtonsoft.Json;
+using System.Collections.Generic;
+using System.Linq;
 
-namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
+namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
 {
-    public class KeystoreData
+    public class CertificateErrorContext
     {
-        [JsonProperty("status")] public string Status { get; set; }
-        [JsonProperty("data")] public Constants.Keystore Keystore { get; set; }
+        public List<string> Errors { get; } = new List<string>();
+
+        public void Add(string error)
+        {
+            Errors.Add(error);
+        }
+
+        public void Insert(int index, string error)
+        {
+            Errors.Insert(index, error);
+        }
+
+        public bool HasErrors => Errors.Any();
     }
 }
