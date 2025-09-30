@@ -1,11 +1,19 @@
-﻿using System;
+﻿// Copyright 2025 Keyfactor
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
+// and limitations under the License.
+ 
+using System;
 using System.Reflection;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Xml;
-
+using System.Xml.Linq;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using RestSharp;
@@ -89,8 +97,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 string username = PAMUtilities.ResolvePAMField(resolver, Logger, "API Username", config.ServerUsername);
                 string password = PAMUtilities.ResolvePAMField(resolver, Logger, "API Password", config.ServerPassword);
                 
-                // TODO: Do we want to remove this log statement in PRODUCTION?
-                Logger.LogDebug($"Username: {username}, Password: {password}");
                 options.Authenticator = new HttpBasicAuthenticator(config.ServerUsername, config.ServerPassword);
 
                 // Add SSL validation
@@ -554,6 +560,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         /// <param name="certUsage">Enum representing the certificate usage (Constants.CertificateUsage)</param>
         public void SetCertUsageBinding(string alias, Constants.CertificateUsage certUsage)
         {
+            string certUsageString = Constants.GetCertUsageAsString(certUsage);
             try
             {
                 Logger.MethodEntry();
@@ -561,7 +568,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 string body = "";
                 RestResponse httpResponse = null;
                 string assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
-                string certUsageString = Constants.GetCertUsageAsString(certUsage);
 
                 // Compose the request body based on the certificate usage
                 switch (certUsage)
@@ -705,14 +711,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     {
                         case Constants.CertificateUsage.Https:
                         {
-                            // TODO: Add API error handling
-
+                            ParseSoapResponse(httpResponse.Content);
                             break;
                         }
                         case Constants.CertificateUsage.IEEE:
                         {
-                            // TODO: Add API error handling
-
+                            ParseSoapResponse(httpResponse.Content);
                             break;
                         }
                         case Constants.CertificateUsage.MQTT:
@@ -754,7 +758,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             }
             catch (Exception e)
             {
-                Logger.LogError("Error setting binding: " + LogHandler.FlattenException(e));
+                Logger.LogError($"Error setting '{certUsageString}' binding: {LogHandler.FlattenException(e)}");
                 throw new Exception(e.Message);
             }
         }
@@ -1066,652 +1070,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 throw;
             }
         }
-        
-
-        // Axis REST Calls
-        /**
-         * HTTP GET: Retrieve a list of CA certificates
-         */
-        /*private CACertificateData HTTP_GetCACertificates()
-        {
-            try
-            {
-                Logger.MethodEntry();
-                if (_restClient is null)
-                {
-                    throw new Exception("Axis IP Camera Rest Client was not initialized");
-                }
-                //_restClient ??= new RestClient(_baseRestClientUrl);
-
-                var resource = $"{ApiEntryPoint}/ca_certificates";
-                var request = new RestRequest(resource);
-
-                Logger.LogTrace($"Rest Request: {_restClient.BuildUri(request)}");
-
-                //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _restClient.Execute(request);
-                if (httpResponse is null)
-                {
-                    throw new InvalidOperationException();
-                }
-
-                Logger.LogTrace($"Rest Response: {httpResponse.Content}");
-
-                ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
-                if (apiResponse.Status == Constants.Status.Success)
-                {
-                    return JsonConvert.DeserializeObject<CACertificateData>(httpResponse.Content);
-                }
-                else
-                {
-                    ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
-                    throw new Exception($"{error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code}");
-                }
-
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(
-                    $"Error Occured in AxisRestClient.HTTP_GetCACertificates: {LogHandler.FlattenException(e)}");
-                throw;
-            }
-        }
-
-        /**
-         * HTTP GET: Retrieve a list of certificates
-         */
-        /*private CertificateData HTTP_GetCertificates()
-        {
-            try
-            {
-                Logger.MethodEntry();
-                if (_restClient is null)
-                {
-                    throw new Exception("Axis IP Camera Rest Client was not initialized");
-                }
-                //_restClient ??= new RestClient(_baseRestClientUrl);
-
-                var resource = $"{ApiEntryPoint}/certificates";
-                var request = new RestRequest(resource);
-
-                Logger.LogTrace($"Rest Request: {_restClient.BuildUri(request)}");
-
-                //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _restClient.Execute(request);
-                if (httpResponse is null)
-                {
-                    throw new InvalidOperationException();
-                }
-
-                Logger.LogTrace($"Rest Response: {httpResponse.Content}");
-
-                ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
-                if (apiResponse.Status == Constants.Status.Success)
-                {
-                    return JsonConvert.DeserializeObject<CertificateData>(httpResponse.Content);
-                }
-                else
-                {
-                    ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
-                    throw new Exception($"{error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code}");
-                }
-
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(
-                    $"Error Occured in AxisRestClient.HTTP_GetCertificates: {LogHandler.FlattenException(e)}");
-                throw;
-            }
-        }
-
-        /**
-         * HTTP GET: Retrieve default keystore 
-         */
-        /*private KeystoreData HTTP_GetDefaultKeystore()
-        {
-            try
-            {
-                Logger.MethodEntry();
-                if (_restClient is null)
-                {
-                    throw new Exception("Axis IP Camera Rest Client was not initialized");
-                }
-                //_restClient ??= new RestClient(_baseRestClientUrl);
-
-                var resource = $"{ApiEntryPoint}/settings/keystore";
-                var request = new RestRequest(resource);
-
-                Logger.LogTrace($"Rest Request: {_restClient.BuildUri(request)}");
-
-                //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _restClient.Execute(request);
-                if (httpResponse is null)
-                {
-                    throw new InvalidOperationException();
-                }
-
-                Logger.LogTrace($"Rest Response: {httpResponse.Content}");
-
-                ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
-                if (apiResponse.Status == Constants.Status.Success)
-                {
-                    return JsonConvert.DeserializeObject<KeystoreData>(httpResponse.Content);
-                }
-                else
-                {
-                    ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
-                    throw new Exception($"{error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
-                }
-
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(
-                    $"Error Occured in AxisRestClient.HTTP_GetDefaultKeystore: {LogHandler.FlattenException(e)}");
-                throw;
-            }
-        }
-
-        /**
-         * HTTP POST: Retrieve a list of certificates
-         
-        private void HTTP_PostCreateCertificate(string jsonBody)
-        {
-            try
-            {
-                Logger.MethodEntry();
-                if (_httpClient is null)
-                {
-                    throw new Exception("Axis IP Camera Rest Client was not initialized");
-                }
-                //_restClient ??= new RestClient(_baseRestClientUrl);
-
-                var resource = $"{ApiEntryPoint}/create_certificate";
-                var request = new RestRequest(resource, Method.Post);
-                request.RequestFormat = DataFormat.Json;
-
-                Logger.LogTrace($"Rest Request: {_httpClient.BuildUri(request)}");
-
-                // Add the certificate body
-                request.AddJsonBody(jsonBody);
-
-                //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _httpClient.Execute(request);
-                if (httpResponse is null)
-                {
-                    throw new InvalidOperationException();
-                }
-
-                Logger.LogTrace($"Rest Response: {httpResponse.Content}");
-
-                ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
-                if (apiResponse.Status == Constants.Status.Success)
-                {
-                    // TODO: Should I do something here?
-                }
-                else
-                {
-                    ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
-                    throw new Exception($"{error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
-                }
-
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(
-                    $"Error Occured in AxisRestClient.HTTP_PostCreateCertificate: {LogHandler.FlattenException(e)}");
-                throw;
-            }
-        }
-
-        /**
-         * HTTP POST: Obtain CSR from self-signed cert generated on the device
-         
-        private string HTTP_PostObtainCSR(string alias, string jsonBody)
-        {
-            try
-            {
-                Logger.MethodEntry();
-                if (_httpClient is null)
-                {
-                    throw new Exception("Axis IP Camera Rest Client was not initialized");
-                }
-                //_restClient ??= new RestClient(_baseRestClientUrl);
-
-                var resource = $"{ApiEntryPoint}/certificates/{alias}/get_csr";
-                var request = new RestRequest(resource, Method.Post);
-                request.RequestFormat = DataFormat.Json;
-
-                Logger.LogTrace($"Rest Request: {_httpClient.BuildUri(request)}");
-
-                // Add the certificate body
-                request.AddJsonBody(jsonBody);
-
-                //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _httpClient.Execute(request);
-                if (httpResponse is null)
-                {
-                    throw new InvalidOperationException();
-                }
-
-                Logger.LogTrace($"Rest Response: {httpResponse.Content}");
-
-                ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
-                if (apiResponse.Status == Constants.Status.Success)
-                {
-                    return JsonConvert.DeserializeObject<CSRData>(httpResponse.Content).CSR;
-                }
-                else
-                {
-                    ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
-                    throw new Exception($"{error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
-                }
-
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(
-                    $"Error Occured in AxisRestClient.HTTP_PostObtainCSR: {LogHandler.FlattenException(e)}");
-                throw;
-            }
-        }
-
-        /**
-         * HTTP POST: Replace certificate but keep private key
-         
-        private void HTTP_PostReplaceCertificate(string alias, string jsonBody)
-        {
-            try
-            {
-                Logger.MethodEntry();
-                if (_httpClient is null)
-                {
-                    throw new Exception("Axis IP Camera Rest Client was not initialized");
-                }
-                //_restClient ??= new RestClient(_baseRestClientUrl);
-
-                var resource = $"{ApiEntryPoint}/certificates/{alias}";
-                var request = new RestRequest(resource, Method.Patch);
-                request.RequestFormat = DataFormat.Json;
-
-                Logger.LogTrace($"Rest Request: {_httpClient.BuildUri(request)}");
-
-                // Add the certificate body
-                request.AddJsonBody(jsonBody);
-
-                //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _httpClient.Execute(request);
-                if (httpResponse is null)
-                {
-                    throw new InvalidOperationException();
-                }
-
-                Logger.LogTrace($"Rest Response: {httpResponse.Content}");
-
-                ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(httpResponse.Content);
-                if (apiResponse.Status == Constants.Status.Success)
-                {
-                    // TODO: Should I do something here?
-                }
-                else
-                {
-                    ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
-                    throw new Exception($"{error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
-                }
-
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(
-                    $"Error Occured in AxisRestClient.HTTP_PostReplaceCertificate: {LogHandler.FlattenException(e)}");
-                throw;
-            }
-        }
-
-        /**
-         * HTTP POST: Replace certificate but keep private key
-         
-        private void HTTP_PostAddCACertificate(string alias, string jsonBody)
-        {
-            try
-            {
-                Logger.MethodEntry();
-                if (_httpClient is null)
-                {
-                    throw new Exception("Axis IP Camera Rest Client was not initialized");
-                }
-                //_restClient ??= new RestClient(_baseRestClientUrl);
-
-                var resource = $"{Constants.RestApiEntryPoint}/ca_certificates";
-                var request = new RestRequest(resource, Method.Post);
-                request.RequestFormat = DataFormat.Json;
-
-                Logger.LogTrace($"Rest Request: {_httpClient.BuildUri(request)}");
-
-                // Add the certificate body
-                request.AddJsonBody(jsonBody);
-
-                //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _httpClient.Execute(request);
-                if (httpResponse is null)
-                {
-                    throw new InvalidOperationException();
-                }
-
-                Logger.LogTrace($"Rest Response: {httpResponse.Content}");
-
-                RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
-                if (apiResponse.Status == Constants.Status.Success)
-                {
-                    // TODO: Should I do something here?
-                }
-                else
-                {
-                    ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
-                    throw new Exception($"{error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
-                }
-
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(
-                    $"Error Occured in AxisRestClient.HTTP_PostAddCACertificate: {LogHandler.FlattenException(e)}");
-                throw;
-            }
-        }
-
-        /**
-         * HTTP POST: Set the binding for the provided alias and cert usage
-         */
-        private void HTTP_PostSetBinding(string alias, Constants.CertificateUsage certUsage)
-        {
-            try
-            {
-                Logger.MethodEntry();
-                if (_httpClient is null)
-                {
-                    throw new Exception("Axis IP Camera Rest Client was not initialized");
-                }
-                //_restClient ??= new RestClient(_baseRestClientUrl);
-
-                var resource = $"/vapix/services";
-                var request = new RestRequest(resource, Method.Post);
-                request.AddHeader("Content-Type", "application/xml");
-
-                Logger.LogTrace($"Rest Request: {_httpClient.BuildUri(request)}");
-
-                var body = "";
-                switch (certUsage)
-                {
-                    case Constants.CertificateUsage.Https:
-                    {
-                        body = @"<SOAP-ENV:Envelope
-" + "\n" +
-                               @"xmlns:wsdl=""http://schemas.xmlsoap.org/wsdl/""
-" + "\n" +
-                               @"xmlns:aweb=""http://www.axis.com/vapix/ws/webserver""
-" + "\n" +
-                               @"xmlns:acert=""http://www.axis.com/vapix/ws/cert""
-" + "\n" +
-                               @"xmlns:xs=""http://www.w3.org/2001/XMLSchema""
-" + "\n" +
-                               @"xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance""
-" + "\n" +
-                               @"xmlns:xsd=""http://www.w3.org/2001/XMLSchema""
-" + "\n" +
-                               @"xmlns:SOAP-ENV=""http://www.w3.org/2003/05/soap-envelope"">
-" + "\n" +
-                               @"
-" + "\n" +
-                               @"  <SOAP-ENV:Body>
-" + "\n" +
-                               @"    <aweb:SetWebServerTlsConfiguration xmlns=""http://www.axis.com/vapix/ws/webserver"">
-" + "\n" +
-                               @"    <Configuration>
-" + "\n" +
-                               @"      <Tls>true</Tls>
-" + "\n" +
-                               @"      <aweb:ConnectionPolicies>
-" + "\n" +
-                               @"        <aweb:Admin>Https</aweb:Admin>
-" + "\n" +
-                               @"      </aweb:ConnectionPolicies>
-" + "\n" +
-                               @"      <aweb:Ciphers>
-" + "\n" +
-                               @"        <acert:Cipher>ECDHE-ECDSA-AES128-GCM-SHA256</acert:Cipher>
-" + "\n" +
-                               @"        <acert:Cipher>ECDHE-RSA-AES128-GCM-SHA256</acert:Cipher>
-" + "\n" +
-                               @"        <acert:Cipher>ECDHE-ECDSA-AES256-GCM-SHA384</acert:Cipher>
-" + "\n" +
-                               @"        <acert:Cipher>ECDHE-RSA-AES256-GCM-SHA384</acert:Cipher>
-" + "\n" +
-                               @"        <acert:Cipher>ECDHE-ECDSA-CHACHA20-POLY1305</acert:Cipher>
-" + "\n" +
-                               @"        <acert:Cipher>ECDHE-RSA-CHACHA20-POLY1305</acert:Cipher>
-" + "\n" +
-                               @"        <acert:Cipher>DHE-RSA-AES128-GCM-SHA256</acert:Cipher>
-" + "\n" +
-                               @"        <acert:Cipher>DHE-RSA-AES256-GCM-SHA384</acert:Cipher>
-" + "\n" +
-                               @"      </aweb:Ciphers>
-" + "\n" +
-                               @"      <aweb:CertificateSet>
-" + "\n" +
-                               @"        <acert:Certificates>
-" + "\n" +
-                               $@"          <acert:Id>{alias}</acert:Id>
-" + "\n" +
-                               @"        </acert:Certificates>
-" + "\n" +
-                               @"        <acert:CACertificates></acert:CACertificates>
-" + "\n" +
-                               @"        <acert:TrustedCertificates></acert:TrustedCertificates>
-" + "\n" +
-                               @"      </aweb:CertificateSet>
-" + "\n" +
-                               @"    </Configuration>
-" + "\n" +
-                               @"    </aweb:SetWebServerTlsConfiguration>
-" + "\n" +
-                               @"  </SOAP-ENV:Body>
-" + "\n" +
-                               @"</SOAP-ENV:Envelope>";
-                        break;
-
-                    }
-                    default:
-                        break;
-                }
-
-                request.AddParameter("application/xml", body, ParameterType.RequestBody);
-
-                //TODO: May need to wait for reboot of camera after HTTP cert is updated
-                //var response = await _restClient.GetAsync(request); TODO: Look into this to see if this is what I should be doing
-                var httpResponse = _httpClient.Execute(request);
-                if (httpResponse is null)
-                {
-                    throw new InvalidOperationException();
-                }
-
-                Logger.LogTrace($"Rest Response: {httpResponse.Content}");
-
-                if (httpResponse.IsSuccessful)
-                {
-                    // TODO: Should I do something here?
-                }
-                else
-                {
-                    throw new Exception($"SOAP Response {httpResponse.Content} - (Code: {httpResponse.StatusCode})");
-                }
-
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(
-                    $"Error Occured in AxisRestClient.HTTP_PostSetBinding: {LogHandler.FlattenException(e)}");
-                throw;
-            }
-        }
-
-        /**
-         * HTTP POST (SOAP): Get the certificate binding for the provided certificate usage
-         
-        private string HTTP_PostGetBinding(Constants.CertificateUsage certUsage)
-        {
-            string boundCertAlias = "Unknown";
-
-            try
-            {
-                Logger.MethodEntry();
-
-                Logger.LogTrace(
-                    $"Retrieving {Enum.GetName(typeof(Constants.CertificateUsage), certUsage)} cert binding");
-
-                // Check if HTTP client was properly initialized
-                if (_httpClient is null)
-                {
-                    throw new Exception("Axis IP Camera HTTP Client was not initialized");
-                }
-
-                var resource = $"/vapix/services";
-                var request = new RestRequest(resource, Method.Post);
-                request.AddHeader("Content-Type", "application/xml");
-                Logger.LogDebug($"SOAP Request URI: {_httpClient.BuildUri(request)}");
-                Logger.LogDebug($"HTTP Method: {Method.Post.ToString()}");
-
-                Logger.LogTrace("Constructing request body...");
-
-                string body = "";
-                switch (certUsage)
-                {
-                    case Constants.CertificateUsage.Https:
-                    {
-                        body = @"<?xml version=""1.0"" encoding=""UTF-8""?> 
-" + "\n" +
-                               @"<Envelope xmlns=""http://www.w3.org/2003/05/soap-envelope""> 
-" + "\n" +
-                               @"<Header/> 
-" + "\n" +
-                               @"    <Body > 
-" + "\n" +
-                               @"        <GetWebServerTlsConfiguration xmlns=""http://www.axis.com/vapix/ws/webserver""> </GetWebServerTlsConfiguration> 
-" + "\n" +
-                               @"    </Body> 
-" + "\n" +
-                               @"</Envelope>";
-                        break;
-
-                    }
-                    case Constants.CertificateUsage.IEEE:
-                    {
-                        body = @"<?xml version=""1.0"" encoding=""UTF-8""?> 
-" + "\n" +
-                               @"<Envelope xmlns=""http://www.w3.org/2003/05/soap-envelope""> 
-" + "\n" +
-                               @"<Header/>
-" + "\n" +
-                               @"   <Body >
-" + "\n" +
-                               @"       <GetDot1XConfiguration xmlns=""http://www.onvif.org/ver10/device/wsdl"">
-" + "\n" +
-                               @"           <Dot1XConfigurationToken>EAPTLS_WIRED</Dot1XConfigurationToken>
-" + "\n" +
-                               @"       </GetDot1XConfiguration>
-" + "\n" +
-                               @"   </Body>
-" + "\n" +
-                               @"</Envelope>";
-                        break;
-                    }
-                    default:
-                        break;
-                }
-
-                request.AddParameter("application/xml", body, ParameterType.RequestBody);
-
-                Logger.LogTrace("Executing SOAP Request...");
-                Logger.LogDebug($"SOAP Request body: {body}");
-                var httpResponse = _httpClient.Execute(request);
-                if (httpResponse is null)
-                {
-                    throw new InvalidOperationException();
-                }
-
-                Logger.LogTrace("SOAP Request completed");
-
-                if (string.IsNullOrEmpty(httpResponse.Content))
-                {
-                    throw new Exception("No content returned from HTTP response");
-                }
-                else
-                {
-                    Logger.LogDebug($"SOAP Response: {httpResponse.Content}");
-                }
-
-                if (httpResponse.IsSuccessful)
-                {
-                    // Parse the response to retrieve the certificate alias
-                    XmlDocument xdoc = new XmlDocument();
-                    XmlNodeList xnodes = null;
-                    xdoc.LoadXml(httpResponse.Content);
-
-                    var tagName = "";
-                    if (certUsage == Constants.CertificateUsage.Https)
-                    {
-                        tagName = Constants.HttpsAliasTagName;
-                    }
-                    else if (certUsage == Constants.CertificateUsage.IEEE)
-                    {
-                        tagName = Constants.IEEEAliasTagName;
-                    }
-                    else
-                    {
-                        throw new Exception("Unknown certificate usage. Unable to parse the SOAP response.");
-                    }
-
-                    // Extract the XML node identified by the tag name 
-                    xnodes = xdoc.GetElementsByTagName(tagName);
-
-                    if (xnodes is null)
-                    {
-                        throw new Exception(
-                            $"Could not locate XML tag '{tagName}' in the SOAP response. Unable to extract the certificate alias.");
-                    }
-
-                    for (int i = 0; i < xnodes.Count; i++)
-                    {
-                        if (i > 0)
-                        {
-                            throw new Exception(
-                                "More than 1 certificate alias was found in the SOAP response. This should never happen.");
-                        }
-
-                        boundCertAlias = xnodes[i].InnerXml;
-                        Logger.LogDebug($"Bound Alias: {boundCertAlias}");
-                    }
-                }
-                else
-                {
-                    throw new Exception($"SOAP Response {httpResponse.Content} - (Code: {httpResponse.StatusCode})");
-                }
-
-                Logger.MethodExit();
-
-                return boundCertAlias;
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(
-                    $"Error Occured in AxisRestClient.HTTP_PostGetBinding: {LogHandler.FlattenException(e)}");
-                throw;
-            }
-        }*/
 
         /// <summary>
-        /// Decodes the give HTTP status code into a human-readable string.
+        /// Decodes the given HTTP status code into a human-readable string.
         /// These include some of the most common HTTP status codes.
         /// </summary>
         /// <param name="httpResponse"></param>
@@ -1767,6 +1128,61 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             Logger.MethodExit();
             
             return codeString;
+        }
+        
+        /// <summary>
+        /// Parses the given SOAP response body into a message and code.
+        /// </summary>
+        /// <param name="soapResponse"></param>
+        private void ParseSoapResponse(string soapResponse)
+        {
+            Logger.MethodEntry();
+            
+            XNamespace soapEnv = "http://www.w3.org/2003/05/soap-envelope";
+
+            StringBuilder soapError = new StringBuilder();
+            try
+            {
+                var doc = XDocument.Parse(soapResponse);
+                var fault = doc.Descendants(soapEnv + "Fault").FirstOrDefault();
+
+                if (fault != null)
+                {
+                    var code = fault.Descendants(soapEnv + "Value").FirstOrDefault()?.Value;
+                    var reason = fault.Descendants(soapEnv + "Text").FirstOrDefault()?.Value;
+                    var detail = fault.Element(soapEnv + "Detail");
+
+                    soapError.Append("SOAP API error encountered - ");
+                    soapError.Append(reason ?? "(No error reason provided)");
+                    soapError.Append(" - (Code: " + code + ")");
+
+                    if (detail != null)
+                    {
+                        var detailContent = detail.Elements().FirstOrDefault();
+                        Logger.LogTrace($"Detail Element: {detailContent?.Name.LocalName ?? "(none)"}");
+                    }
+                    else
+                    {
+                        Logger.LogTrace("No SOAP Fault detail element found.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unable to parse SOAP response: {ex.Message}");
+            }
+
+            if (soapError.Length == 0)
+            {
+                Logger.LogTrace("SOAP API returned success!");
+            }
+            else
+            {
+                Logger.LogTrace("SOAP API returned an error");
+                throw new Exception(soapError.ToString());
+            }
+            
+            Logger.MethodExit();
         }
     }
 }

@@ -1,16 +1,20 @@
-﻿using System;
+﻿// Copyright 2025 Keyfactor
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
+// and limitations under the License.
+
+using System;
 using System.Text;
 using System.Linq;
-using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+
 using Keyfactor.Logging;
 using Keyfactor.Orchestrators.Extensions;
 using Keyfactor.Orchestrators.Common.Enums;
-
-using Microsoft.Extensions.Logging;
-
-using Newtonsoft.Json;
-
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
 using Keyfactor.Orchestrators.Extensions.Interfaces;
@@ -133,7 +137,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         }
 
                         // Build PEM content
-                        // TODO: Add this and the logic in reenrollment to client class (consolidate)
                         string formattedDer = InsertLineBreaks(certBase64Der, 64);
                         _logger.LogDebug(($"Formatted certificate contents:\n{formattedDer}"));
 
@@ -192,14 +195,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
 
                         break;
                     }
-                    case CertStoreOperationType.Create:
-                        //OperationType == Create - Create an empty certificate store in the provided location
-                        //Code logic to:
-                        // 1) Connect to the orchestrated server (config.CertificateStoreDetails.ClientMachine) where the certificate store (config.CertificateStoreDetails.StorePath) will be located
-                        // 2) Custom logic to first check if the store already exists and add it if not.  If it already exists, implementation dependent as to how to handle - error, warning, success
-                        // TODO: This is not supported operation
-
-                        break;
                     default:
                         //Invalid OperationType.  Return error.  Should never happen though
                         return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Site {config.CertificateStoreDetails.StorePath} on server {config.CertificateStoreDetails.ClientMachine}: Unsupported operation: {config.OperationType.ToString()}" };

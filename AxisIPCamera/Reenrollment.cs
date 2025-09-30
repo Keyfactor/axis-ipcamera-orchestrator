@@ -1,9 +1,14 @@
-﻿using System;
+﻿// Copyright 2025 Keyfactor
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
+// and limitations under the License.
+
+using System;
 using System.Collections.Generic;
-using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
-
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
@@ -77,8 +82,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         _logger.LogDebug($"Alias '{reenrollAlias}' provided for reenrollment matches alias '{boundAlias}' currently bound " +
                                          $"to certificate usage type {certUsage}");
                         
-                        // TODO - If possible: Create backup of the existing certificate
-                        // For now, throw an exception
                         throw new Exception(
                             $"Alias '{reenrollAlias}' already exists for certificate usage type {certUsage}. Reenroll using another alias.");
                     }
@@ -151,12 +154,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 _logger.LogTrace("Submitting CSR to be signed in Command");
                 var x509Cert = submitReenrollment.Invoke(csr);
 
-                /* TODO: This isn't working --- determine how to fix this, if necessary
-                 _logger.LogTrace("Validating certificate");
-                Constants.ValidateCertificate(x509Cert);
-                _logger.LogTrace("Certificate is valid");
-                */
-                
                 // Build PEM content
                 // ** NOTE: The static newline (\n) characters are required in the API request
                 StringBuilder pemBuilder = new StringBuilder();

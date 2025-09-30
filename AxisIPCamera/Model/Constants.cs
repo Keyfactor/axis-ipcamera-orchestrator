@@ -1,10 +1,14 @@
-﻿using System;
+﻿// Copyright 2025 Keyfactor
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
+// and limitations under the License.
+
+using System;
 using System.IO;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Pkcs;
-using Org.BouncyCastle.Crypto;
 
 namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
 {
@@ -206,33 +210,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
             catch (Exception ex)
             {
                 throw new Exception($"CSR Validation failed: {ex.Message}");
-            }
-        }
-        
-        public static void ValidateCertificate(X509Certificate2 cert)
-        {
-            var errors = new StringBuilder();
-            
-            try
-            {
-                using (var chain = new X509Chain())
-                {
-                    bool isValid = chain.Build(cert);
-
-                    if (!isValid)
-                    {
-                        foreach (var status in chain.ChainStatus)
-                        {
-                            errors.AppendLine($"Chain error: {status.Status} - {status.StatusInformation}");
-                        }
-
-                        throw new Exception(errors.ToString());
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Certificate Validation failed: \n{ex.Message}");
             }
         }
     }
