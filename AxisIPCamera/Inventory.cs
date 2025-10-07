@@ -179,7 +179,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             {
                 // ** NOTE: If the cause of the submitInventory.Invoke exception is a communication issue between the Orchestrator server and the Command server, the job status returned here
                 //  may not be reflected in Keyfactor Command.
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, 
+                return new JobResult() { Result = OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, 
                     FailureMessage = $"Inventory Job Failed During Inventory Item Submission: {e2.Message} - Refer to logs for more detailed information." };
             }
         }

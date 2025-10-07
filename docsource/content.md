@@ -44,10 +44,12 @@ To trust the device ID certificate, you must create a custom trust and add the r
 
 ### Steps to Create the Custom Trust:
 
-1. Once the DLLs from GitHub are installed, create two (2) files in `..\[AXIS IP Camera orchestrator extension folder name]\Files` folder with the below names:
-   * **Axis.Trust**
+1. Once the DLLs from GitHub are installed, create two (2) files in the sub-directory called "Files" with the below names (*Note: The "Files" folder should already exist):
+   * **Axis.Root**
    * **Axis.Intermediate**
 
+* **Default Path on Windows** - `C:\Program Files\Keyfactor\Keyfactor Orchestrator\extensions\[Axis IP Camera orchestrator extension folder]\Files`
+* **Default Path on Linux** - `/opt/keyfactor/orchestrator/extensions/[Axis IP Camera orchestrator extension folder]/Files`
 2. Copy and paste the PEM contents of the AXIS PKI root for the device ID cert configured for the HTTP server into the **Axis.Root** file
 3. Copy and paste the PEM contents of the AXIS PKI intermediate for the device ID configured for the HTTP server into the **Axis.Intermediate** file
 

@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Security;
+using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 
@@ -59,8 +60,13 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
                 logger.LogTrace($"Performing Cert Validator Check #1: Verify the TLS cert chain against custom chain of AXIS PKI certs...");
                 
                 // Load custom trusted certs
-                string trustedRootCertPath = "C:\\Program Files\\Keyfactor\\Keyfactor Orchestrator\\extensions\\AxisIPCamera\\Files\\Axis.Root";
-                string trustedIntCertPath = "C:\\Program Files\\Keyfactor\\Keyfactor Orchestrator\\extensions\\AxisIPCamera\\Files\\Axis.Intermediate";
+                string basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
+                logger.LogTrace($"Base PATH for custom trusted certs: {basePath}");
+
+                string trustedRootCertPath = Path.Combine(basePath, "Files", "Axis.Root");
+                string trustedIntCertPath = Path.Combine(basePath, "Files", "Axis.Intermediate");
+                logger.LogTrace($"Combined PATH for custom trusted Root certs: {trustedRootCertPath}");
+                logger.LogTrace($"Combined PATH for custom trusted Intermediate certs: {trustedIntCertPath}");
 
                 X509CertificateParser parser = new X509CertificateParser();
                 var customChain = new List<X509Certificate> { };
@@ -207,6 +213,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
         private static bool VerifyAkiSkiChain(List<X509Certificate> customChain, ILogger logger)
         {
             logger.MethodEntry();
+
+            logger.LogTrace("Custom chain being validated includes: (1) Leaf cert from TLS session, (2) n-Intermediate certs from custom trust, &" +
+                            "n-Root certs from custom trust");
             
             for (int i = 0; i < customChain.Count - 1; i++)
             {

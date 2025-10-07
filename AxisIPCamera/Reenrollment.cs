@@ -15,6 +15,7 @@ using Newtonsoft.Json;
 using Keyfactor.Logging;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
+using Keyfactor.Orchestrators.Common.Enums;
 using Keyfactor.Orchestrators.Extensions;
 using Keyfactor.Orchestrators.Extensions.Interfaces;
 
@@ -173,12 +174,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             catch (Exception ex)
             {
                 //Status: 2=Success, 3=Warning, 4=Error
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, 
+                return new JobResult() { Result = OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, 
                     FailureMessage = $"Reenrollment Job Failed: {ex.Message} - Refer to logs for more detailed information." };
             }
 
             //Status: 2=Success, 3=Warning, 4=Error
-            return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Success, JobHistoryId = config.JobHistoryId };
+            return new JobResult() { Result = OrchestratorJobStatusJobResult.Success, JobHistoryId = config.JobHistoryId };
         }
     }
 }

@@ -43,10 +43,6 @@
 	<None Update="Files\GetMQTTBinding.json">
 	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	</None>
-	
-	<None Update="Files\Axis.Trust">
-	  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-	</None>
   </ItemGroup>
 
 </Project>

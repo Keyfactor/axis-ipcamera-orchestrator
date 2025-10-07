@@ -97,7 +97,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 string username = PAMUtilities.ResolvePAMField(resolver, Logger, "API Username", config.ServerUsername);
                 string password = PAMUtilities.ResolvePAMField(resolver, Logger, "API Password", config.ServerPassword);
                 
-                options.Authenticator = new HttpBasicAuthenticator(config.ServerUsername, config.ServerPassword);
+                options.Authenticator = new HttpBasicAuthenticator(username, password);
 
                 // Add SSL validation
                 Logger.LogTrace("Validating connection to the device...");
@@ -575,8 +575,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     case Constants.CertificateUsage.Https:
                     {
                         Logger.LogTrace(
-                            $"Reading XML request body template from {assemblyPath}\\{Constants.SetHttpsTemplate}");
-                        var xmlTemplate = File.ReadAllText($"{assemblyPath}\\{Constants.SetHttpsTemplate}");
+                            $"Reading XML request body template from {Path.Combine(assemblyPath, Constants.SetHttpsTemplate)}");
+                        var xmlTemplate = File.ReadAllText($"{Path.Combine(assemblyPath, Constants.SetHttpsTemplate)}");
                         body = xmlTemplate.Replace("{ALIAS}", alias);
 
                         httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,
@@ -587,8 +587,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     case Constants.CertificateUsage.IEEE:
                     {
                         Logger.LogTrace(
-                            $"Reading XML request body template from {assemblyPath}\\{Constants.SetIEEETemplate}");
-                        var xmlTemplate = File.ReadAllText($"{assemblyPath}\\{Constants.SetIEEETemplate}");
+                            $"Reading XML request body template from {Path.Combine(assemblyPath, Constants.SetIEEETemplate)}");
+                        var xmlTemplate = File.ReadAllText($"{Path.Combine(assemblyPath, Constants.SetIEEETemplate)}");
                         body = xmlTemplate.Replace("{ALIAS}", alias);
 
                         httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,
@@ -600,8 +600,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     {
                         // Get the config info that is required for the request body used to set the binding
                         Logger.LogTrace(
-                            "Retrieve required MQTT configuration data required for the JSON request body to set the binding");
-                        var clientStatusBody = File.ReadAllText($"{assemblyPath}\\{Constants.GetMQTTTemplate}");
+                            $"Retrieve required MQTT configuration data required for the JSON request body to set the binding --- GET request body from {Path.Combine(assemblyPath, Constants.GetMQTTTemplate)}");
+                        var clientStatusBody = File.ReadAllText($"{Path.Combine(assemblyPath, Constants.GetMQTTTemplate)}");
                         var clientStatusResponse = ExecuteHttp(Constants.CgiApiEntryPoint, Method.Post,
                             Constants.ApiType.Cgi,
                             clientStatusBody);
@@ -656,7 +656,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                                     throw new Exception($"Unable to parse JSON response: {ex2.Message}");
                                 }
 
-                                var jsonTemplate = File.ReadAllText($"{assemblyPath}\\{Constants.SetMQTTTemplate}");
+                                Logger.LogTrace(
+                                    $"Reading JSON request body template from {Path.Combine(assemblyPath, Constants.SetMQTTTemplate)}");
+                                var jsonTemplate = File.ReadAllText($"{Path.Combine(assemblyPath, Constants.SetMQTTTemplate)}");
                                 Logger.LogDebug("Client Status Return Values - ");
                                 Logger.LogDebug("API Version: " + clientStatusData.ApiVersion);
                                 Logger.LogDebug("Host: " + clientStatusData.Data.Config.Server.Host);
@@ -786,24 +788,24 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 {
                     case Constants.CertificateUsage.Https:
                     {
-                        Logger.LogTrace($"Reading XML request body template from {assemblyPath}\\{Constants.GetHttpsTemplate}");
-                        body = File.ReadAllText($"{assemblyPath}\\{Constants.GetHttpsTemplate}");
+                        Logger.LogTrace($"Reading XML request body template from {Path.Combine(assemblyPath, Constants.GetHttpsTemplate)}");
+                        body = File.ReadAllText($"{Path.Combine(assemblyPath, Constants.GetHttpsTemplate)}");
                         httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,body);
                         
                         break;
                     }
                     case Constants.CertificateUsage.IEEE:
                     {
-                        Logger.LogTrace($"Reading XML request body template from {assemblyPath}\\{Constants.GetIEEETemplate}");
-                        body = File.ReadAllText($"{assemblyPath}\\{Constants.GetIEEETemplate}");
+                        Logger.LogTrace($"Reading XML request body template from {Path.Combine(assemblyPath, Constants.GetIEEETemplate)}");
+                        body = File.ReadAllText($"{Path.Combine(assemblyPath, Constants.GetIEEETemplate)}");
                         httpResponse = ExecuteHttp(Constants.SoapApiEntryPoint, Method.Post, Constants.ApiType.Soap,body);
                         
                         break;
                     }
                     case Constants.CertificateUsage.MQTT:
                     {
-                        Logger.LogTrace($"Reading JSON request body template from {assemblyPath}\\{Constants.GetMQTTTemplate}");
-                        body = File.ReadAllText($"{assemblyPath}\\{Constants.GetMQTTTemplate}");
+                        Logger.LogTrace($"Reading JSON request body template from {Path.Combine(assemblyPath, Constants.GetMQTTTemplate)}");
+                        body = File.ReadAllText($"{Path.Combine(assemblyPath, Constants.GetMQTTTemplate)}");
                         httpResponse = ExecuteHttp(Constants.CgiApiEntryPoint, Method.Post, Constants.ApiType.Cgi,body);
 
                         break;

@@ -38,12 +38,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
         
         // Below are the relative file paths to the SOAP and CGI API request body templates
         // ** NOTE: The 'Files' directory should be located in the same directory as the AxisIPCamera.dll
-        public static string GetHttpsTemplate = $"Files\\GetHttpsBinding.xml";
-        public static string GetIEEETemplate  = $"Files\\GetIEEEBinding.xml";
-        public static string GetMQTTTemplate  = $"Files\\GetMQTTBinding.json";
-        public static string SetHttpsTemplate = $"Files\\SetHttpsBinding.xml";
-        public static string SetIEEETemplate  = $"Files\\SetIEEEBinding.xml";
-        public static string SetMQTTTemplate  = $"Files\\SetMQTTBinding.json";
+        public static readonly string GetHttpsTemplate = $"{Path.Combine("Files","GetHttpsBinding.xml")}";
+        public static readonly string GetIEEETemplate  = $"{Path.Combine("Files","GetIEEEBinding.xml")}";
+        public static readonly string GetMQTTTemplate  = $"{Path.Combine("Files","GetMQTTBinding.json")}";
+        public static readonly string SetHttpsTemplate = $"{Path.Combine("Files", "SetHttpsBinding.xml")}";
+        public static readonly string SetIEEETemplate  = $"{Path.Combine("Files", "SetIEEEBinding.xml")}";
+        public static readonly string SetMQTTTemplate  = $"{Path.Combine("Files", "SetMQTTBinding.json")}";
         
         public enum CertificateUsage
         {
