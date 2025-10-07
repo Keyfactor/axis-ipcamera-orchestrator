@@ -5,13 +5,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
 // and limitations under the License.
 
-using Newtonsoft.Json;
+using Keyfactor.Orchestrators.Extensions.Interfaces;
+using Microsoft.Extensions.Logging;
 
-namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
+namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
 {
-    public class KeystoreData
+    public static class PAMUtilities
     {
-        [JsonProperty("status")] public string Status { get; set; }
-        [JsonProperty("data")] public Constants.Keystore Keystore { get; set; }
+        public static string ResolvePAMField(IPAMSecretResolver resolver, ILogger logger, string name, string key)
+        {
+            logger.LogDebug($"Attempting to resolve PAM eligible field {name}");
+            return resolver.Resolve(key);
+        }
     }
 }
