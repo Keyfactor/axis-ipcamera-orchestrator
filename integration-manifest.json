@@ -2,12 +2,12 @@
   "$schema": "https://keyfactor.github.io/v2/integration-manifest-schema.json",
   "integration_type": "orchestrator",
   "name": "AXIS IP Camera",
-  "status": "pilot",
+  "status": "production",
   "support_level": "kf-supported",
   "release_dir": "AxisIPCamera\\bin\\Release",
   "release_project":"AxisIPCamera\\AxisIPCamera.csproj",
-  "update_catalog": false,
-  "link_github": false,
+  "update_catalog": true,
+  "link_github": true,
   "description": "The Axis IP Camera Orchestrator Extension is used to inventory, manage Trust certs, and enroll for client certificates that can be bound to endpoints.",
   "about": {
     "orchestrator": {
