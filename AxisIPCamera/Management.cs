@@ -77,7 +77,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         //     to determine if job should overwrite an existing certificate in the store, for example a renewal.
 
                         // Retrieve management config from Command
-                        _logger.LogDebug($"Management Config {JsonConvert.SerializeObject(config)}");
+                        string jsonConfig = JsonConvert.SerializeObject(config);
+                        _logger.LogDebug($"Management Config: {jsonConfig.Replace(config.ServerPassword,"**********")}");
                         _logger.LogDebug($"Client Machine: {config.CertificateStoreDetails.ClientMachine}");
 
                         // Get needed information from config

@@ -42,7 +42,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 _logger.MethodEntry();
                 
                 _logger.LogTrace($"Begin Reenrollment for Client Machine {config.CertificateStoreDetails.ClientMachine}");
-                _logger.LogDebug($"Reenrollment Config: {JsonConvert.SerializeObject(config)}");
+                string jsonConfig = JsonConvert.SerializeObject(config);
+                _logger.LogDebug($"Reenrollment Config: {jsonConfig.Replace(config.ServerPassword,"**********")}");
 
                 // Log each key-value pair in the Job Properties for debugging
                 _logger.LogDebug("Begin Job Properties ---");
@@ -109,7 +110,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 // Get the default keystore
                 _logger.LogTrace("Retrieve the default keystore");
                 Constants.Keystore defaultKeystore = client.GetDefaultKeystore();
-                string defaultKeystoreString = Enum.GetName(typeof(Constants.Keystore), defaultKeystore);
+                string defaultKeystoreString = defaultKeystore.ToString();
                 _logger.LogDebug($"Reenrollment - Default keystore: {defaultKeystoreString}");
                 
                 _logger.LogTrace("Generating self-signed cert with private key on device");
