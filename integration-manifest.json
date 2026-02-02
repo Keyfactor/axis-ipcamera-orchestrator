@@ -9,6 +9,7 @@
   "update_catalog": true,
   "link_github": true,
   "description": "The Axis IP Camera Orchestrator Extension is used to inventory, manage Trust certs, and enroll for client certificates that can be bound to endpoints.",
+  "short_description": "The Axis IP Camera Orchestrator Extension is used to inventory, manage Trust certs, and enroll for client certificates that can be bound to endpoints.",
   "about": {
     "orchestrator": {
       "UOFramework": "10.1",
@@ -90,3 +91,4 @@
     }
   }
 }
+

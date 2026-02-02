@@ -28,7 +28,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
     {
         [JsonProperty("alias")] public string Alias { get; set; }
         [JsonProperty("certificate")] public string CertAsPem { get; set; }
-        [JsonProperty("keystore")] public Constants.Keystore Keystore { get; set; }
+        [JsonProperty("keystore")] public Constants.Keystore Keystore { get; init; }
         public Constants.CertificateUsage Binding { get; set; } = Constants.CertificateUsage.Other;
     }
 
