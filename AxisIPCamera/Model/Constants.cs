@@ -7,6 +7,7 @@
 
 using System;
 using System.IO;
+using Newtonsoft.Json;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Pkcs;
 
@@ -55,11 +56,15 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
             Undefined
         }
 
-        // ** NOTE: There may be more keystore types depending on the Axis camera model
-        public enum Keystore
+        /** NOTE: Keystore IDs are device-specific and not stable across Axis camera models.
+         *  New camera/firmware can introduce new Keystore IDs. Cameras can also have multiple
+         *  keystores of the same type (i.e. SE0, SE1, TPM0, TPM1, etc.)
+         *  Therefore, treat the Keystore ID as an opaque string, not a fixed enum.
+         */
+        [JsonConverter(typeof(KeystoreJsonConverter))]
+        public readonly record struct Keystore(string Value)
         {
-            TEE0, // Trusted Environment
-            SE0 // Secure Element
+            public override string ToString() => Value;
         }
 
         public enum ApiType
@@ -210,6 +215,36 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
             catch (Exception ex)
             {
                 throw new Exception($"CSR Validation failed: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Custom JSON converter to tell Newtonsoft how to parse the record struct 'Keystore' type.
+        /// </summary>
+        private sealed class KeystoreJsonConverter : JsonConverter<Keystore>
+        {
+            public override Keystore ReadJson(
+                JsonReader reader,
+                Type objectType,
+                Keystore existingValue,
+                bool hasExistingValue,
+                JsonSerializer serializer)
+            {
+                if (reader.TokenType == JsonToken.String)
+                {
+                    return new Keystore(reader.Value!.ToString()!);
+                }
+
+                throw new JsonSerializationException(
+                    $"Unexpected token {reader.TokenType} when parsing Keystore");
+            }
+
+            public override void WriteJson(
+                JsonWriter writer,
+                Keystore value,
+                JsonSerializer serializer)
+            {
+                writer.WriteValue(value.Value);
             }
         }
     }

@@ -232,7 +232,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         /// <summary>
         /// Gets the default keystore configured on the device.
         /// </summary>
-        /// <returns>Keystore Enum</returns>
+        /// <returns>Keystore struct</returns>
         public Constants.Keystore GetDefaultKeystore()
         {
             try
