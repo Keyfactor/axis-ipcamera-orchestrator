@@ -187,6 +187,37 @@ the Keyfactor Command Portal
 
    ![AxisIPCamera Custom Fields Tab](docsource/images/AxisIPCamera-custom-fields-store-type-dialog.png)
 
+
+   ###### Server Username
+   Enter the username of the configured "service" user on the camera
+
+
+   > [!IMPORTANT]
+   > This field is created by the `Needs Server` on the Basic tab, do not create this field manually.
+
+
+
+
+   ###### Server Password
+   Enter the password of the configured "service" user on the camera
+
+
+   > [!IMPORTANT]
+   > This field is created by the `Needs Server` on the Basic tab, do not create this field manually.
+
+
+
+
+   ###### Use SSL
+   Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. This should always be "True"
+
+   ![AxisIPCamera Custom Field - ServerUseSsl](docsource/images/AxisIPCamera-custom-field-ServerUseSsl-dialog.png)
+   ![AxisIPCamera Custom Field - ServerUseSsl](docsource/images/AxisIPCamera-custom-field-ServerUseSsl-validation-options-dialog.png)
+
+
+
+
+
    ##### Entry Parameters Tab
 
    | Name | Display Name | Description | Type | Default Value | Entry has a private key | Adding an entry | Removing an entry | Reenrolling an entry |
@@ -197,21 +228,29 @@ the Keyfactor Command Portal
 
    ![AxisIPCamera Entry Parameters Tab](docsource/images/AxisIPCamera-entry-parameters-store-type-dialog.png)
 
+
+   ##### Certificate Usage
+   The Certificate Usage to assign to the cert after enrollment. Can be left 'Other' to be assigned later.
+
+   ![AxisIPCamera Entry Parameter - CertUsage](docsource/images/AxisIPCamera-entry-parameters-store-type-dialog-CertUsage.png)
+   ![AxisIPCamera Entry Parameter - CertUsage](docsource/images/AxisIPCamera-entry-parameters-store-type-dialog-CertUsage-validation-options.png)
+
+
+
    </details>
 
 ## Installation
 
 1. **Download the latest AXIS IP Camera Universal Orchestrator extension from GitHub.**
 
-    Navigate to the [AXIS IP Camera Universal Orchestrator extension GitHub version page](https://github.com/Keyfactor/axis-ipcamera-orchestrator/releases/latest). Refer to the compatibility matrix below to determine whether the `net6.0` or `net8.0` asset should be downloaded. Then, click the corresponding asset to download the zip archive.
+    Navigate to the [AXIS IP Camera Universal Orchestrator extension GitHub version page](https://github.com/Keyfactor/axis-ipcamera-orchestrator/releases/latest). Refer to the compatibility matrix below to determine the asset should be downloaded. Then, click the corresponding asset to download the zip archive.
 
    | Universal Orchestrator Version | Latest .NET version installed on the Universal Orchestrator server | `rollForward` condition in `Orchestrator.runtimeconfig.json` | `axis-ipcamera-orchestrator` .NET version to download |
    | --------- | ----------- | ----------- | ----------- |
    | Older than `11.0.0` | | | `net6.0` |
    | Between `11.0.0` and `11.5.1` (inclusive) | `net6.0` | | `net6.0` |
-   | Between `11.0.0` and `11.5.1` (inclusive) | `net8.0` | `Disable` | `net6.0` |
-   | Between `11.0.0` and `11.5.1` (inclusive) | `net8.0` | `LatestMajor` | `net8.0` |
-   | `11.6` _and_ newer | `net8.0` | | `net8.0` |
+   | Between `11.0.0` and `11.5.1` (inclusive) | `net8.0` | `Disable` | `net6.0` || Between `11.0.0` and `11.5.1` (inclusive) | `net8.0` | `LatestMajor` | `net8.0` |
+   | `11.6` _and_ newer | `net8.0` | | `net8.0` | 
 
     Unzip the archive containing extension assemblies to a known location.
 
