@@ -73,6 +73,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
                 
                 // Add TLS cert as leaf certificate to the end of the custom chain
                 customChain.Add(parser.ReadCertificate(cert.RawData));
+
+                if (!File.Exists(trustedIntCertPath))
+                {
+                    logger.LogError($"{trustedIntCertPath} does not exist.");
+                    return false;
+                }
                 
                 logger.LogTrace($"Loading Trusted Intermediate Certs from {trustedIntCertPath}");
                 var trustedIntCerts = parser.ReadCertificates(File.ReadAllBytes(trustedIntCertPath));
@@ -91,6 +97,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
                 }
                 
                 logger.LogTrace($"{trustedIntCerts.Count} Trusted Intermediate Certs found");
+                
+                if (!File.Exists(trustedRootCertPath))
+                {
+                    logger.LogError($"{trustedRootCertPath} does not exist.");
+                    return false;
+                }
                 
                 logger.LogTrace($"Loading Trusted Root Cert from {trustedRootCertPath}");
                 var trustedRootCerts = parser.ReadCertificates(File.ReadAllBytes(trustedRootCertPath));
@@ -214,8 +226,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
         {
             logger.MethodEntry();
 
-            logger.LogTrace("Custom chain being validated includes: (1) Leaf cert from TLS session, (2) n-Intermediate certs from custom trust, &" +
-                            "n-Root certs from custom trust");
+            logger.LogTrace("Custom chain being validated includes: (1) Leaf cert from TLS session, (2) n-Intermediate certs from custom trust, & " +
+                            "(3) n-Root certs from custom trust");
             
             for (int i = 0; i < customChain.Count - 1; i++)
             {

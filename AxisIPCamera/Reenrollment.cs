@@ -1,4 +1,4 @@
-﻿// Copyright 2025 Keyfactor
+﻿// Copyright 2026 Keyfactor
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
@@ -14,10 +15,14 @@ using Newtonsoft.Json;
 
 using Keyfactor.Logging;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client;
+using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
 using Keyfactor.Orchestrators.Common.Enums;
 using Keyfactor.Orchestrators.Extensions;
 using Keyfactor.Orchestrators.Extensions.Interfaces;
+using Keyfactor.PKI.Enums;
+using Keyfactor.PKI.X509;
+//using Org.BouncyCastle.X509;
 
 namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
 {
@@ -25,7 +30,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
     {
         private readonly ILogger _logger;
         
-        private readonly IPAMSecretResolver _resolver;
+        private readonly IPAMSecretResolver _resolver; 
         public string ExtensionName => "";
         
         public Reenrollment(IPAMSecretResolver resolver)
@@ -53,6 +58,22 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 }
                 _logger.LogDebug("--- End Job Properties");
                 
+                // Log each SAN, if provided
+                _logger.LogDebug("Begin SANs ---");
+                var formattedSANs = SANBuilder.BuildSANString(config.SANs,_logger);
+                if (formattedSANs.Count == 0)
+                {
+                    _logger.LogDebug($"No SAN values found.");
+                }
+                else
+                {
+                    foreach (var san in formattedSANs)
+                    {
+                        _logger.LogDebug($"{san}");
+                    }   
+                }
+                _logger.LogDebug("--- End SANs");
+                
                 // Get required reenrollment fields
                 string certUsage = config.JobProperties[Constants.CertUsageParamName].ToString() ?? throw new Exception($"{Constants.CertUsageParamDisplay} returned null");
                 var certUsageEnum = Constants.GetCertUsageAsEnum(certUsage);
@@ -75,6 +96,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 // Get current binding for reenrollment certificate usage provided
                 _logger.LogTrace($"Check '{certUsage}' binding for same alias");
                 var boundAlias = client.GetCertUsageBinding(Constants.GetCertUsageAsEnum(certUsage));
+                var replaceCert = false;
                 if (!string.IsNullOrEmpty(boundAlias))
                 {
                     _logger.LogDebug($"Alias currently bound to certificate usage type '{certUsage}': {boundAlias}");
@@ -82,14 +104,14 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     if (boundAlias == reenrollAlias)
                     {
                         _logger.LogDebug($"Alias '{reenrollAlias}' provided for reenrollment matches alias '{boundAlias}' currently bound " +
-                                         $"to certificate usage type {certUsage}");
-                        
-                        throw new Exception(
-                            $"Alias '{reenrollAlias}' already exists for certificate usage type {certUsage}. Reenroll using another alias.");
+                                         $"to certificate usage type {certUsage}. Proceeding with rekeying, CSR, and replacing cert for alias...");
+                        replaceCert = true;
                     }
-
-                    _logger.LogTrace($"Alias '{reenrollAlias}' provided for reenrollment differs from alias '{boundAlias}' currently bound " +
-                                     $"to certificate usage type {certUsage}. Proceeding...");
+                    else
+                    {
+                        _logger.LogTrace($"Alias '{reenrollAlias}' provided for reenrollment differs from alias '{boundAlias}' currently bound " +
+                                         $"to certificate usage type {certUsage}. Proceeding with new key, CSR, and adding cert for alias...");
+                    }
                 }
                 else
                 {
@@ -112,10 +134,10 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 Constants.Keystore defaultKeystore = client.GetDefaultKeystore();
                 string defaultKeystoreString = defaultKeystore.ToString();
                 _logger.LogDebug($"Reenrollment - Default keystore: {defaultKeystoreString}");
-                
-                _logger.LogTrace("Generating self-signed cert with private key on device");
-                List<string> sansList = new List<string>();
-                if (certUsageEnum == Constants.CertificateUsage.Https)
+
+                // If no SANs are provided and the cert usage is 'HTTPS' and this is a new alias ---
+                // Add 1 for DNS and 1 for IP address to eliminate TLS errors
+                if(formattedSANs.Count == 0 && certUsageEnum == Constants.CertificateUsage.Https && !replaceCert)
                 {
                     _logger.LogTrace("Extracting CN and IP address to add as SANs to the certificate");
                     // Extract the CN from the Subject
@@ -126,8 +148,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         throw new Exception(
                             "No value provided in the Subject for 'CN'. This is required for HTTPS certificates.");
                     }
+
                     _logger.LogTrace($"Extracted CN attribute from the Subject: {cnMatch.Groups[1].Value}");
-                    
+
                     // Extract the IP address from the Client Machine
                     var ipMatch = Regex.Match(config.CertificateStoreDetails.ClientMachine,
                         @"^(?<ip>(?:\d{1,3}\.){3}\d{1,3})", RegexOptions.IgnoreCase);
@@ -137,15 +160,21 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         throw new Exception(
                             "Value provided for the Client Machine does not match IPv4 format.");
                     }
-                    _logger.LogTrace($"Extracted IP Address from the Client Machine: { ipMatch.Groups["ip"].Value}");
 
-                    sansList.Add("DNS:" + cnMatch.Groups[1].Value);
-                    sansList.Add("IP:" + ipMatch.Groups["ip"].Value);
+                    _logger.LogTrace($"Extracted IP Address from the Client Machine: {ipMatch.Groups["ip"].Value}");
+
+                    formattedSANs.Add($@"""DNS:{cnMatch.Groups[1].Value}""");
+                    formattedSANs.Add($@"""IP:{ipMatch.Groups["ip"].Value}""");
                 }
-                client.CreateSelfSignedCert(reenrollAlias,keyType,defaultKeystoreString,subject,sansList.ToArray());
+
+                if (!replaceCert)
+                {
+                    _logger.LogTrace("Generating self-signed cert with private key on device");
+                    client.CreateSelfSignedCert(reenrollAlias,keyType,defaultKeystoreString,subject);
+                }
                 
-                _logger.LogTrace("Obtaining CSR using self-signed certificate");
-                var csr = client.ObtainCSR(reenrollAlias);
+                _logger.LogTrace("Obtaining CSR");
+                var csr = client.ObtainCSR(reenrollAlias,subject,formattedSANs);
                 _logger.LogDebug($"CSR: \n{csr}");
 
                 _logger.LogTrace("Validating CSR");
@@ -155,6 +184,19 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 // Submit CSR to be signed in Keyfactor
                 _logger.LogTrace("Submitting CSR to be signed in Command");
                 var x509Cert = submitReenrollment.Invoke(csr);
+                
+                // TESTING build chain functionality
+                /*using var aiaClient = new HttpClient();
+                var builder = new ChainBuilder(aiaClient);
+                var bcX509Cert = new X509CertificateParser().ReadCertificate(x509Cert.RawData);
+                var chain = builder.BuildChain(bcX509Cert, CertificateCollectionOrder.EndEntityFirst);
+
+                int i = 0;
+                foreach (var cert in chain.Certificates)
+                {
+                    i++;
+                    _logger.LogTrace($"Cert {i}: {cert.SubjectDN.ToString()}");
+                }*/
 
                 // Build PEM content
                 // ** NOTE: The static newline (\n) characters are required in the API request
@@ -166,7 +208,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 pemBuilder.Append(@"\n-----END CERTIFICATE-----");
                 var pemCert = pemBuilder.ToString();
 
-                _logger.LogTrace($"Replacing self-signed cert '{reenrollAlias}' with the following cert: " + pemCert);
+                _logger.LogTrace($"Replacing cert '{reenrollAlias}' with the following cert: " + pemCert);
                 client.ReplaceCertificate(reenrollAlias,pemCert);
                 
                 _logger.LogTrace($"Setting '{certUsage}' binding to alias '{reenrollAlias}'");

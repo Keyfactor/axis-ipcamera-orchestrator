@@ -1,4 +1,4 @@
-﻿// Copyright 2025 Keyfactor
+﻿// Copyright 2026 Keyfactor
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
@@ -6,6 +6,7 @@
 // and limitations under the License.
  
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.IO;
 using System.Linq;
@@ -285,8 +286,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         /// <param name="keyType">Combination of key algorithm and key size</param>
         /// <param name="keystore">Default keystore for the device</param>
         /// <param name="subject">Subject provided for the certificate</param>
-        /// <param name="sans">Subject Alternative Names</param>
-        public void CreateSelfSignedCert(string alias, string keyType, string keystore, string subject, string[] sans)
+        public void CreateSelfSignedCert(string alias, string keyType, string keystore, string subject)
         {
             try
             {
@@ -303,7 +303,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                         KeyType = keyType,
                         Keystore = keystore,
                         Subject = subject,
-                        SANS = sans,
+                        SANS = [],
                         ValidFrom = 0, // Cert validity period will be determined by the template
                         ValidTo = 0 // Cert validity period will be determined by the template
                     }
@@ -347,12 +347,15 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         }
 
         /// <summary>
-        /// Obtains a CSR for the self-signed certificate with private key on the device.
-        /// Fields from the self-signed certificate will be copied into the CSR. 
+        /// Obtains a CSR for the self-signed or existing certificate with private key on the device.
+        /// Fields from the certificate will be copied into the CSR.
+        /// SANs will be added to the CSR.
         /// </summary>
         /// <param name="alias">Unique identifier for the cert to be generated from the CSR</param>
+        /// <param name="subject">Subject provided for the certificate</param>
+        /// <param name="sans">Subject Alternative Names</param>
         /// <returns>CSR string</returns>
-        public string ObtainCSR(string alias)
+        public string ObtainCSR(string alias, string subject, List<string> sans)
         {
             try
             {
@@ -360,12 +363,29 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
                 var postCSRResource = $"{Constants.RestApiEntryPoint}/certificates/{alias}/get_csr";
                 
-                // Compose the body --- This is required, but leaving the contents blank.
-                // All information obtained in the self-signed cert will be used to create the CSR.
+                // Compose the body --- This is required.
+                // All information obtained in the self-signed or existing cert will be used to create the CSR.
                 // If there are attributes assigned by the CA, those will override the attributes that end up
                 // in the certificate signed by the CA. 
-                string jsonBody = @"{""data"":{}}";
-                var httpResponse = ExecuteHttp(postCSRResource, Method.Post, Constants.ApiType.Rest, jsonBody);
+                // 1. If a field is filled out, that value will be used in the CSR
+                // 2. If a field is NOT filled out, the existing value from the existing certificate will be copied into the CSR
+                // 3. If a field is filled out with a blank value, that field is not copied from the existing certificate nor added to the CSR
+                var jsonBody = new StringBuilder(@"{""data"":{");
+
+                if (sans.Count == 0)
+                {
+                    jsonBody.Append(@"""subject"":""").Append(subject).Append("}}");
+                }
+                else
+                {
+                    jsonBody.Append(@"""subject"":""").Append(subject).Append(@""",""subject_alt_names"": [");
+                    string result = string.Join(",", sans);
+                    jsonBody.Append(result).Append("]}}");
+                }
+                
+                Logger.LogDebug($"POST Request Body: {jsonBody}");
+                
+                var httpResponse = ExecuteHttp(postCSRResource, Method.Post, Constants.ApiType.Rest, jsonBody.ToString());
                 
                 // Decode the HTTP response if failed
                 if (httpResponse is {IsSuccessful:false})

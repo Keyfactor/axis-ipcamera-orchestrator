@@ -70,6 +70,8 @@ These values must match or the session will be denied.
 ## Caveats
 
 > [!NOTE] 
-> Reenrollment jobs will not replace or remove a client-server certificate with the same alias. They will also not remove 
-> the original certificate if a particular \`Certificate Usage\` had an associated cert. Since the camera has limited storage,
-> it will be up to the user to remove any unused client-server certificates via the AXIS Network Camera GUI.
+> v1.1.0 - A Reenrollment job will now replace the certificate contents for an existing alias on the camera, therefore, not requiring
+> a new alias be supplied for every new certificate enrollment.
+>
+> If a new alias is supplied, a Reenrollment job will not remove the original certificate associated with the \`Certificate Usage\`.
+> Since the camera has limited storage, it will be up to the user to remove any unused certificates via the AXIS Network Camera GUI.
