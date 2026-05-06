@@ -549,54 +549,50 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 throw new Exception(e.Message);
             }
         }
-        
+
         /// <summary>
         /// Removes a certificate with private key from the device.
         /// </summary>
         /// <param name="alias">Unique identifier of the CA certificate to be removed</param>
-        public void RemoveCertificate(string alias)
+        public HttpResult RemoveCertificate(string alias)
         {
             try
             {
                 Logger.MethodEntry();
 
+                var context = new HttpContext();
+                
                 var deleteCertResource = $"{Constants.RestApiEntryPoint}/certificates/{alias}";
                 var httpResponse = ExecuteHttp(deleteCertResource, Method.Delete);
                 
                 // Decode the HTTP response if failed
                 if (httpResponse is { IsSuccessful: false })
                 {
-                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
-                    throw new Exception($"HTTP Request unsuccessful.");
+                    var decodedStatus = DecodeHttpStatus(httpResponse);
+                    
+                    Logger.LogWarning($"HTTP Request unsuccessful - HTTP Response: {decodedStatus}");
+                    context.AddWarning(decodedStatus);
                 }
                 
-                // Decode the API response when HTTP response is successful
+                // Decode the API response for more information
                 if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
                 {
-                    throw new Exception("No content returned from HTTP Response");
-                }
-
-                RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
-                if (apiResponse.Status == Constants.Status.Success)
-                {
-                    Logger.MethodExit();
+                    Logger.LogError("No content returned from HTTP Response");
+                    context.AddError($"No content returned from HTTP Response for {nameof(Method.Delete)} {deleteCertResource}");
                 }
                 else
                 {
-                    ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
-
-                    // Check for error code 5 - "Validation error: Certificate is in use" or "Validation error: Certificate is not deletable" --- 
-                    // This will capture all device ID certs, which we do not want to delete anyway
-                    if (error.ErrorInfo is { Code: 5, Message: "Validation error: Certificate is not deletable" or "Validation error: Certificate is in use"})
+                    RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
+                    if (apiResponse.Status != Constants.Status.Success)
                     {
-                        Logger.LogWarning($"API warning encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
-                    }
-                    else
-                    {
-                        throw new Exception(
-                            $"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
+                        ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
+                        Logger.LogWarning($"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
+                        context.AddWarning($"HTTP Request {nameof(Method.Delete)} {deleteCertResource}: API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
                     }
                 }
+
+                Logger.MethodExit();
+                return context.ToResult();
             }
             catch (Exception e)
             {

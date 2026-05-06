@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -197,12 +198,20 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 client.SetCertUsageBinding(newAlias,certUsageEnum);
                     
                 // Perform unused certificate cleanup --- 
-                // 1) If a bound alias exists and there is a new alias to enroll, delete the bound alias
+                // 1) If a bound alias exists, delete the bound alias
+                HttpResult result;
                 if (oldCertExists)
                 {
                     _logger.LogTrace($"Removing certificate and private key associated with alias '{oldAlias}'");
-                    client.RemoveCertificate(oldAlias);
+                    result = client.RemoveCertificate(oldAlias);
+
+                    if (result.Status == HttpStatus.Warning)
+                    {
+                        return new JobResult() { Result = OrchestratorJobStatusJobResult.Warning, JobHistoryId = config.JobHistoryId, 
+                            FailureMessage = $"Reenrollment Job Had Warnings - Refer to logs for more detailed information." };
+                    }
                 }
+
 
                 // TESTING build chain functionality
                 /*using var aiaClient = new HttpClient();
