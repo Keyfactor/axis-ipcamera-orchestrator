@@ -1,4 +1,4 @@
-﻿// Copyright 2025 Keyfactor
+﻿// Copyright 2026 Keyfactor
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
@@ -6,7 +6,9 @@
 // and limitations under the License.
 
 using System;
+using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Pkcs;
@@ -16,7 +18,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
     public static class Constants
     {
         // This is the API entry point for the REST VAPIX Cert Management API
-        public static string RestApiEntryPoint = "/config/rest/cert/v1beta";
+        public static string RestApiEntryPoint = "/config/rest/cert/v1";
 
         // This is the API entry point for the SOAP Cert Management API
         public static string SoapApiEntryPoint = "/vapix/services";
@@ -246,6 +248,33 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
             {
                 writer.WriteValue(value.Value);
             }
+        }
+    }
+    
+    public static class CertificateName
+    {
+        /// <summary>
+        /// Returns a UTC-based suffix, i.e. "2602171544"
+        /// </summary>
+        public static string GetUtcSuffix() =>
+            DateTime.UtcNow.ToString("yyMMddHHmm", CultureInfo.InvariantCulture);
+
+        /// <summary>
+        /// Creates a unique certificate name by appending ['_' + Utc DateTime suffix] to the end of the user-supplied certificate name.
+        /// Example: "_2602171544"
+        /// </summary>
+        public static string CreateUniqueCertName(string certName)
+        {
+            // check to see if the old cert name had a previously appended timestamp
+            // EDGE CASE: Scenario under which this could happen - Cert name bound to usage is known and used to schedule an ODKG job
+            Regex rgx = new Regex(@"_[0-9]{10}$",RegexOptions.CultureInvariant);
+            var m = Regex.Match(certName,@"_[0-9]{10}$");
+            if (m.Success)
+            {
+                return certName.Remove(m.Index, m.Length) + "_" + GetUtcSuffix();
+            }
+
+            return certName + "_" + GetUtcSuffix();
         }
     }
 }

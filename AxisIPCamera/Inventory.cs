@@ -62,8 +62,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 _logger.LogTrace("Retrieve all client certificates");
                 CertificateData data2 = client.ListCertificates();
                 
+                // TODO: Remove this if not using
                 // Get the default keystore
-                _logger.LogTrace("Retrieve the default keystore");
+                /*_logger.LogTrace("Retrieve the default keystore");
                 Constants.Keystore defaultKeystore = client.GetDefaultKeystore();
                 string defaultKeystoreString = defaultKeystore.ToString();
                 _logger.LogDebug($"Inventory - Default keystore: {defaultKeystoreString}");
@@ -78,7 +79,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 foreach (var cert in data2.Certs.Where(cert => cert.Keystore == defaultKeystore))
                 {
                     data2DefKey.Certs.Add(cert);
-                }
+                }*/
                 
                 _logger.LogTrace("Retrieve all certificate bindings for each possible certificate usage type");
                 // Lookup the certificate used for HTTPS, MQTT, IEEE802.X
@@ -88,7 +89,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 
                 // Set the binding on the client certificates object if the aliases found for each certificate usage match
                 _logger.LogTrace("Mark each client certificate with the appropriate certificate usage type");
-                foreach (Certificate c in data2DefKey.Certs)
+                foreach (Certificate c in data2.Certs)
                 {
                     if (c.Alias.Equals(httpAlias))
                     {
@@ -131,7 +132,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     }).Where(item => item?.Certificates != null).ToList());
                 
                 // Build the list of client certificates and add to the InventoryItems object that is sent back to Command
-                inventoryItems.AddRange(data2DefKey.Certs.Select(
+                inventoryItems.AddRange(data2.Certs.Select(
                     c =>
                     {
                         try
