@@ -13,7 +13,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
 {
     public static class SANBuilder
     {
-        public static List<string> BuildSANString(Dictionary<string, string[]> sans, ILogger logger)
+        public static List<string> BuildSANList(Dictionary<string, string[]> sans, ILogger logger)
         {
             var parts = new List<string>();
             
@@ -39,7 +39,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
                 parts.AddRange(
                     entry.Value
                         .Where(v => !string.IsNullOrWhiteSpace(v))
-                        .Select(v => $@"""{key}:{v.Trim()}""")
+                        .Select(v => $"{key}:{v.Trim()}")
                     );
             }
 

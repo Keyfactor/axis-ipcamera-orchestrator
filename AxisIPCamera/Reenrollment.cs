@@ -60,7 +60,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 
                 // Log each SAN, if provided
                 _logger.LogDebug("Begin SANs ---");
-                var formattedSANs = SANBuilder.BuildSANString(config.SANs,_logger);
+                var formattedSANs = SANBuilder.BuildSANList(config.SANs,_logger);
                 if (formattedSANs.Count == 0)
                 {
                     _logger.LogDebug($"No SAN values found.");
@@ -80,8 +80,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 string keyAlgorithm = config.JobProperties["keyType"].ToString() ?? throw new Exception("Key Algorithm returned null");
                 string keySize = config.JobProperties["keySize"].ToString() ?? throw new Exception("Key Size returned null");
                 string subject = config.JobProperties["subjectText"].ToString() ?? throw new Exception("Subject returned null");
-                string reenrollAlias = config.Alias ?? throw new Exception("Alias returned null");
-                _logger.LogDebug($"Alias: {reenrollAlias}");
+                string newAlias = config.Alias ?? throw new Exception("Alias returned null");
+                _logger.LogDebug($"Alias: {newAlias}");
                 
                 // Prevent reenrollment on Trust certificates
                 if (certUsageEnum is Constants.CertificateUsage.Trust)
@@ -93,29 +93,27 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 _logger.LogTrace("Create HTTPS client to connect to device");
                 var client = new AxisHttpClient(config, config.CertificateStoreDetails, _resolver);
 
-                // Get current binding for reenrollment certificate usage provided
+                // Get the existing alias name associated with the supplied cert usage
                 _logger.LogTrace($"Check '{certUsage}' binding for same alias");
-                var boundAlias = client.GetCertUsageBinding(Constants.GetCertUsageAsEnum(certUsage));
-                var replaceCert = false;
-                if (!string.IsNullOrEmpty(boundAlias))
+                var oldAlias = client.GetCertUsageBinding(Constants.GetCertUsageAsEnum(certUsage));
+                var oldCertExists = false;
+                if (!string.IsNullOrEmpty(oldAlias))
                 {
-                    _logger.LogDebug($"Alias currently bound to certificate usage type '{certUsage}': {boundAlias}");
+                    oldCertExists = true;
+                    _logger.LogDebug($"Alias currently bound to certificate usage type '{certUsage}': {oldAlias}");
                     
-                    if (boundAlias == reenrollAlias)
-                    {
-                        _logger.LogDebug($"Alias '{reenrollAlias}' provided for reenrollment matches alias '{boundAlias}' currently bound " +
-                                         $"to certificate usage type {certUsage}. Proceeding with rekeying, CSR, and replacing cert for alias...");
-                        replaceCert = true;
-                    }
-                    else
-                    {
-                        _logger.LogTrace($"Alias '{reenrollAlias}' provided for reenrollment differs from alias '{boundAlias}' currently bound " +
-                                         $"to certificate usage type {certUsage}. Proceeding with new key, CSR, and adding cert for alias...");
-                    }
+                    // compare the old alias name with the new alias name ---
+                    // 1) if the names are the same, append a reserved time-based suffix to the end of the name
+                    // This new name [AliasA_Timestamp] will be used to create the new cert.
+                    // OR
+                    // 2) EDGE CASE: if the old alias name currently tied to the cert usage does NOT match the new alias name,
+                    // also create a new name [CertB_Timestamp] for the new cert in case the user-supplied cert name is already
+                    // associated with an existing certificate that is NOT bound to a cert usage
+                    newAlias = CertificateName.CreateUniqueCertName(newAlias);
                 }
                 else
                 {
-                    _logger.LogDebug($"No alias currently bound to certificate usage type {certUsage}");
+                    _logger.LogDebug($"No alias currently bound to certificate usage type {certUsage}. Proceeding with new key, CSR, and adding cert for new alias...");
                 }
 
                 // Map the key type and key size from the job properties to a corresponding key type available on the device
@@ -135,9 +133,9 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 string defaultKeystoreString = defaultKeystore.ToString();
                 _logger.LogDebug($"Reenrollment - Default keystore: {defaultKeystoreString}");
 
-                // If no SANs are provided and the cert usage is 'HTTPS' and this is a new alias ---
+                // If no SANs are provided and the cert usage is 'HTTPS' ---
                 // Add 1 for DNS and 1 for IP address to eliminate TLS errors
-                if(formattedSANs.Count == 0 && certUsageEnum == Constants.CertificateUsage.Https && !replaceCert)
+                if(formattedSANs.Count == 0 && certUsageEnum == Constants.CertificateUsage.Https)
                 {
                     _logger.LogTrace("Extracting CN and IP address to add as SANs to the certificate");
                     // Extract the CN from the Subject
@@ -163,27 +161,50 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
 
                     _logger.LogTrace($"Extracted IP Address from the Client Machine: {ipMatch.Groups["ip"].Value}");
 
-                    formattedSANs.Add($@"""DNS:{cnMatch.Groups[1].Value}""");
-                    formattedSANs.Add($@"""IP:{ipMatch.Groups["ip"].Value}""");
-                }
-
-                if (!replaceCert)
-                {
-                    _logger.LogTrace("Generating self-signed cert with private key on device");
-                    client.CreateSelfSignedCert(reenrollAlias,keyType,defaultKeystoreString,subject);
+                    formattedSANs.Add($"DNS:{cnMatch.Groups[1].Value}");
+                    formattedSANs.Add($"IP:{ipMatch.Groups["ip"].Value}");
                 }
                 
+                _logger.LogTrace("Generating private key pair on device");
+                client.CreateSelfSignedCert(newAlias,keyType,defaultKeystoreString,subject,formattedSANs.ToArray());
+                
                 _logger.LogTrace("Obtaining CSR");
-                var csr = client.ObtainCSR(reenrollAlias,subject,formattedSANs);
+                var csr = client.ObtainCSR(newAlias);
                 _logger.LogDebug($"CSR: \n{csr}");
-
+                
                 _logger.LogTrace("Validating CSR");
                 Constants.ValidateCsr(csr);
                 _logger.LogTrace("CSR is valid");
                 
-                // Submit CSR to be signed in Keyfactor
-                _logger.LogTrace("Submitting CSR to be signed in Command");
+                // Submit CSR to be signed
+                _logger.LogTrace("Submitting CSR to Command to enroll for signed certificate");
                 var x509Cert = submitReenrollment.Invoke(csr);
+                
+                // Build PEM content
+                // ** NOTE: The static newline (\n) characters are required in the API request
+                StringBuilder pemBuilder = new StringBuilder();
+                pemBuilder.Append(@"-----BEGIN CERTIFICATE-----\n");
+                string s = Convert.ToBase64String(x509Cert.RawData, Base64FormattingOptions.InsertLineBreaks);
+                var noLineBreaks = s.Replace(Environment.NewLine,@"\n");
+                pemBuilder.Append(noLineBreaks);
+                pemBuilder.Append(@"\n-----END CERTIFICATE-----");
+                var pemCert = pemBuilder.ToString();
+                    
+                _logger.LogTrace($"Replacing cert '{newAlias}' with the following cert: " + pemCert);
+                client.ReplaceCertificate(newAlias,pemCert);
+                    
+                _logger.LogTrace($"Setting '{certUsage}' binding to alias '{newAlias}'");
+                client.SetCertUsageBinding(newAlias,certUsageEnum);
+                    
+                // Perform unused certificate cleanup --- 
+                // 1) If a bound alias exists and there is a new alias to enroll, delete the bound alias
+                if (oldCertExists)
+                {
+                    _logger.LogTrace($"Removing certificate and private key associated with alias '{oldAlias}'");
+                    client.RemoveCertificate(oldAlias);
+                }
+
+               // TODO: Add check for device ID
                 
                 // TESTING build chain functionality
                 /*using var aiaClient = new HttpClient();
@@ -197,22 +218,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     i++;
                     _logger.LogTrace($"Cert {i}: {cert.SubjectDN.ToString()}");
                 }*/
-
-                // Build PEM content
-                // ** NOTE: The static newline (\n) characters are required in the API request
-                StringBuilder pemBuilder = new StringBuilder();
-                pemBuilder.Append(@"-----BEGIN CERTIFICATE-----\n");
-                string s = Convert.ToBase64String(x509Cert.RawData, Base64FormattingOptions.InsertLineBreaks);
-                var noLineBreaks = s.Replace(Environment.NewLine,@"\n");
-                pemBuilder.Append(noLineBreaks);
-                pemBuilder.Append(@"\n-----END CERTIFICATE-----");
-                var pemCert = pemBuilder.ToString();
-
-                _logger.LogTrace($"Replacing cert '{reenrollAlias}' with the following cert: " + pemCert);
-                client.ReplaceCertificate(reenrollAlias,pemCert);
-                
-                _logger.LogTrace($"Setting '{certUsage}' binding to alias '{reenrollAlias}'");
-                client.SetCertUsageBinding(reenrollAlias, certUsageEnum);
             }
             catch (Exception ex)
             {

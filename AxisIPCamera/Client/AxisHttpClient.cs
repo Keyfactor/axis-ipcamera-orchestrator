@@ -6,7 +6,6 @@
 // and limitations under the License.
  
 using System;
-using System.Collections.Generic;
 using System.Reflection;
 using System.IO;
 using System.Linq;
@@ -286,7 +285,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         /// <param name="keyType">Combination of key algorithm and key size</param>
         /// <param name="keystore">Default keystore for the device</param>
         /// <param name="subject">Subject provided for the certificate</param>
-        public void CreateSelfSignedCert(string alias, string keyType, string keystore, string subject)
+        /// <param name="sans">Subject Alternative Names</param>
+        public void CreateSelfSignedCert(string alias, string keyType, string keystore, string subject, string[] sans)
         {
             try
             {
@@ -303,7 +303,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                         KeyType = keyType,
                         Keystore = keystore,
                         Subject = subject,
-                        SANS = [],
+                        SANS = sans,
                         ValidFrom = 0, // Cert validity period will be determined by the template
                         ValidTo = 0 // Cert validity period will be determined by the template
                     }
@@ -347,15 +347,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         }
 
         /// <summary>
-        /// Obtains a CSR for the self-signed or existing certificate with private key on the device.
-        /// Fields from the certificate will be copied into the CSR.
-        /// SANs will be added to the CSR.
+        /// Obtains a CSR for the self-signed certificate with private key on the device.
+        /// Fields from the self-signed certificate will be copied into the CSR. 
         /// </summary>
         /// <param name="alias">Unique identifier for the cert to be generated from the CSR</param>
-        /// <param name="subject">Subject provided for the certificate</param>
-        /// <param name="sans">Subject Alternative Names</param>
         /// <returns>CSR string</returns>
-        public string ObtainCSR(string alias, string subject, List<string> sans)
+        public string ObtainCSR(string alias)
         {
             try
             {
@@ -363,29 +360,12 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
                 var postCSRResource = $"{Constants.RestApiEntryPoint}/certificates/{alias}/get_csr";
                 
-                // Compose the body --- This is required.
-                // All information obtained in the self-signed or existing cert will be used to create the CSR.
+                // Compose the body --- This is required, but leaving the contents blank.
+                // All information obtained in the self-signed cert will be used to create the CSR.
                 // If there are attributes assigned by the CA, those will override the attributes that end up
                 // in the certificate signed by the CA. 
-                // 1. If a field is filled out, that value will be used in the CSR
-                // 2. If a field is NOT filled out, the existing value from the existing certificate will be copied into the CSR
-                // 3. If a field is filled out with a blank value, that field is not copied from the existing certificate nor added to the CSR
-                var jsonBody = new StringBuilder(@"{""data"":{");
-
-                if (sans.Count == 0)
-                {
-                    jsonBody.Append(@"""subject"":""").Append(subject).Append("}}");
-                }
-                else
-                {
-                    jsonBody.Append(@"""subject"":""").Append(subject).Append(@""",""subject_alt_names"": [");
-                    string result = string.Join(",", sans);
-                    jsonBody.Append(result).Append("]}}");
-                }
-                
-                Logger.LogDebug($"POST Request Body: {jsonBody}");
-                
-                var httpResponse = ExecuteHttp(postCSRResource, Method.Post, Constants.ApiType.Rest, jsonBody.ToString());
+                string jsonBody = @"{""data"":{}}";
+                var httpResponse = ExecuteHttp(postCSRResource, Method.Post, Constants.ApiType.Rest, jsonBody);
                 
                 // Decode the HTTP response if failed
                 if (httpResponse is {IsSuccessful:false})
@@ -544,22 +524,75 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
                     throw new Exception($"HTTP Request unsuccessful.");
                 }
+                
                 // Decode the API response when HTTP response is successful
+                if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
+                {
+                    throw new Exception("No content returned from HTTP Response");
+                }
+
+                RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
+                if (apiResponse.Status == Constants.Status.Success)
+                {
+                    Logger.MethodExit();
+                }
                 else
                 {
-                    if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
-                    {
-                        throw new Exception("No content returned from HTTP Response");
-                    }
+                    ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
+                    throw new Exception(
+                        $"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.LogError("Error completing CA certificate remove: " + LogHandler.FlattenException(e));
+                throw new Exception(e.Message);
+            }
+        }
+        
+        /// <summary>
+        /// Removes a certificate with private key from the device.
+        /// </summary>
+        /// <param name="alias">Unique identifier of the CA certificate to be removed</param>
+        public void RemoveCertificate(string alias)
+        {
+            try
+            {
+                Logger.MethodEntry();
 
-                    RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
-                    if (apiResponse.Status == Constants.Status.Success)
+                var deleteCertResource = $"{Constants.RestApiEntryPoint}/certificates/{alias}";
+                var httpResponse = ExecuteHttp(deleteCertResource, Method.Delete);
+                
+                // Decode the HTTP response if failed
+                if (httpResponse is { IsSuccessful: false })
+                {
+                    Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
+                    throw new Exception($"HTTP Request unsuccessful.");
+                }
+                
+                // Decode the API response when HTTP response is successful
+                if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
+                {
+                    throw new Exception("No content returned from HTTP Response");
+                }
+
+                RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
+                if (apiResponse.Status == Constants.Status.Success)
+                {
+                    Logger.MethodExit();
+                }
+                else
+                {
+                    ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
+
+                    // Check for error code 5 - "Validation error: Certificate is in use" or "Validation error: Certificate is not deletable" --- 
+                    // This will capture all device ID certs, which we do not want to delete anyway
+                    if (error.ErrorInfo is { Code: 5, Message: "Validation error: Certificate is not deletable" or "Validation error: Certificate is in use"})
                     {
-                        Logger.MethodExit();
+                        Logger.LogWarning($"API warning encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
                     }
                     else
                     {
-                        ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
                         throw new Exception(
                             $"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
                     }
@@ -567,7 +600,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             }
             catch (Exception e)
             {
-                Logger.LogError("Error completing CA certificate remove: " + LogHandler.FlattenException(e));
+                Logger.LogError("Error completing certificate remove: " + LogHandler.FlattenException(e));
                 throw new Exception(e.Message);
             }
         }
