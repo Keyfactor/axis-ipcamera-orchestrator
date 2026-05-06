@@ -204,8 +204,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     client.RemoveCertificate(oldAlias);
                 }
 
-               // TODO: Add check for device ID
-                
                 // TESTING build chain functionality
                 /*using var aiaClient = new HttpClient();
                 var builder = new ChainBuilder(aiaClient);
