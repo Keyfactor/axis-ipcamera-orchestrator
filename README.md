@@ -247,14 +247,12 @@ the Keyfactor Command Portal
 
    | Universal Orchestrator Version | Latest .NET version installed on the Universal Orchestrator server | `rollForward` condition in `Orchestrator.runtimeconfig.json` | `axis-ipcamera-orchestrator` .NET version to download |
    | --------- | ----------- | ----------- | ----------- |
-   | Older than `11.0.0` | | | `net6.0` |
-   | Between `11.0.0` and `11.5.1` (inclusive) | `net6.0` | | `net6.0` |
-   | Between `11.0.0` and `11.5.1` (inclusive) | `net8.0` | `Disable` | `net6.0` || Between `11.0.0` and `11.5.1` (inclusive) | `net8.0` | `LatestMajor` | `net8.0` |
+   | Between `11.0.0` and `11.5.1` (inclusive) | `net8.0` | `LatestMajor` | `net8.0` |
    | `11.6` _and_ newer | `net8.0` | | `net8.0` | 
 
     Unzip the archive containing extension assemblies to a known location.
 
-    > **Note** If you don't see an asset with a corresponding .NET version, you should always assume that it was compiled for `net6.0`.
+    > **Note** If you don't see an asset with a corresponding .NET version, you should always assume that it was compiled for `net8.0`.
 
 2. **Locate the Universal Orchestrator extensions directory.**
 
@@ -435,23 +433,31 @@ There are five (5) possible options:
 > [!NOTE] 
 > A Reenrollment (ODKG) job will not allow enrollment of certificates with **Trust** assigned as the \`Certificate Usage\`.
 > Trust CA certificates can be added to the camera via a Management - Add job.
+> These CA certificates establish trust for TLS connections initiated by the camera.
 
 > [!NOTE]
-> For a Reenrollment (ODKG) job, where the \`Certificate Usage\` assigned is **HTTPS**, IP and DNS are added as SANS
-> to the enrolled certificate.
+> As of Keyfactor Command v25.4, SANs can be provided for a Reenrollment (ODKG) job.
+> You must also have installed, at minimum, the Keyfactor Universal Orchestator v25.1
+> in order for the SANs to be sent to the orchestrator.
 > 
-> IP = Client Machine configured for the certificate store (excluding any port)
+> The Axis IP Camera API *only* supports the addition of DNS and IP SANs. If you add other SAN types to the ODKG job, these will be ignored and not added to the certificate.
 > 
-> DNS = CN set in the Subject DN
+> * If SANs are NOT provided and the \`Certificate Usage\` assigned is **HTTPS**, IP and DNS will be automatically added as SANs to an enrolled certificate associated with a NEW alias.
+>
+> * IP = Client Machine configured for the certificate store (excluding any port)
+> 
+> * DNS = CN set in the Subject DN
 
 
 
 ## Caveats
 
 > [!NOTE] 
-> Reenrollment jobs will not replace or remove a client-server certificate with the same alias. They will also not remove 
-> the original certificate if a particular \`Certificate Usage\` had an associated cert. Since the camera has limited storage,
-> it will be up to the user to remove any unused client-server certificates via the AXIS Network Camera GUI.
+> v1.1.0 - A Reenrollment job will now replace the certificate contents for an existing alias on the camera, therefore, not requiring
+> a new alias be supplied for every new certificate enrollment.
+>
+> If a new alias is supplied, a Reenrollment job will not remove the original certificate associated with the \`Certificate Usage\`.
+> Since the camera has limited storage, it will be up to the user to remove any unused certificates via the AXIS Network Camera GUI.
 
 
 ## License
