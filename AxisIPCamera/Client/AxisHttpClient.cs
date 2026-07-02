@@ -1,4 +1,4 @@
-﻿// Copyright 2025 Keyfactor
+﻿// Copyright 2026 Keyfactor
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
@@ -524,30 +524,79 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     Logger.LogError($"HTTP Request unsuccessful - HTTP Response: {DecodeHttpStatus(httpResponse)}");
                     throw new Exception($"HTTP Request unsuccessful.");
                 }
+                
                 // Decode the API response when HTTP response is successful
+                if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
+                {
+                    throw new Exception("No content returned from HTTP Response");
+                }
+
+                RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
+                if (apiResponse.Status == Constants.Status.Success)
+                {
+                    Logger.MethodExit();
+                }
                 else
                 {
-                    if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
-                    {
-                        throw new Exception("No content returned from HTTP Response");
-                    }
-
-                    RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
-                    if (apiResponse.Status == Constants.Status.Success)
-                    {
-                        Logger.MethodExit();
-                    }
-                    else
-                    {
-                        ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
-                        throw new Exception(
-                            $"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
-                    }
+                    ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
+                    throw new Exception(
+                        $"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
                 }
             }
             catch (Exception e)
             {
                 Logger.LogError("Error completing CA certificate remove: " + LogHandler.FlattenException(e));
+                throw new Exception(e.Message);
+            }
+        }
+
+        /// <summary>
+        /// Removes a certificate with private key from the device.
+        /// </summary>
+        /// <param name="alias">Unique identifier of the CA certificate to be removed</param>
+        public HttpResult RemoveCertificate(string alias)
+        {
+            try
+            {
+                Logger.MethodEntry();
+
+                var context = new HttpContext();
+                
+                var deleteCertResource = $"{Constants.RestApiEntryPoint}/certificates/{alias}";
+                var httpResponse = ExecuteHttp(deleteCertResource, Method.Delete);
+                
+                // Decode the HTTP response if failed
+                if (httpResponse is { IsSuccessful: false })
+                {
+                    var decodedStatus = DecodeHttpStatus(httpResponse);
+                    
+                    Logger.LogWarning($"HTTP Request unsuccessful - HTTP Response: {decodedStatus}");
+                    context.AddWarning(decodedStatus);
+                }
+                
+                // Decode the API response for more information
+                if (httpResponse != null && string.IsNullOrEmpty(httpResponse.Content))
+                {
+                    Logger.LogError("No content returned from HTTP Response");
+                    context.AddError($"No content returned from HTTP Response for {nameof(Method.Delete)} {deleteCertResource}");
+                }
+                else
+                {
+                    RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
+                    if (apiResponse.Status != Constants.Status.Success)
+                    {
+                        ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
+                        Logger.LogWarning($"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
+                        context.AddWarning($"HTTP Request {nameof(Method.Delete)} {deleteCertResource}: API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
+                    }
+                }
+
+                Logger.MethodExit();
+                return context.ToResult();
+            }
+            catch (Exception e)
+            {
+                Logger.LogError("Error completing certificate remove: " + LogHandler.FlattenException(e));
                 throw new Exception(e.Message);
             }
         }
