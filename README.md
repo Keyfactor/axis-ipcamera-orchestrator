@@ -198,6 +198,7 @@ the Keyfactor Command Portal
    Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. This should always be "True"
 
    ![AxisIPCamera Custom Field - ServerUseSsl](docsource/images/AxisIPCamera-custom-field-ServerUseSsl-dialog.svg)
+   ![AxisIPCamera Custom Field - ServerUseSsl](docsource/images/AxisIPCamera-custom-field-ServerUseSsl-validation-options-dialog.svg)
 
 
    ##### Entry Parameters Tab
@@ -213,6 +214,7 @@ the Keyfactor Command Portal
    The Certificate Usage to assign to the cert after enrollment. Can be left 'Other' to be assigned later.
 
    ![AxisIPCamera Entry Parameter - CertUsage](docsource/images/AxisIPCamera-entry-parameters-store-type-dialog-CertUsage.svg)
+   ![AxisIPCamera Entry Parameter - CertUsage](docsource/images/AxisIPCamera-entry-parameters-store-type-dialog-CertUsage-validation-options.svg)
 
 
    </details>
