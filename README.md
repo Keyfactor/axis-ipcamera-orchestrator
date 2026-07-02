@@ -53,13 +53,12 @@ The Axis IP Camera Orchestrator extension DOES NOT support the following use cas
 
 \* Currently supported certificate usages include: **HTTPS**, **IEEE802.X**, **MQTT**, **Other**
 
-
-
 ## Compatibility
 
 This integration is compatible with Keyfactor Universal Orchestrator version 10.1 and later.
 
 ## Support
+
 The AXIS IP Camera Universal Orchestrator extension is supported by Keyfactor. If you require support for any issues or have feature request, please open a support ticket by either contacting your Keyfactor representative or via the Keyfactor Support Portal at https://support.keyfactor.com.
 
 > If you want to contribute bug fixes or additional enhancements, use the **[Pull requests](../../pulls)** tab.
@@ -68,18 +67,14 @@ The AXIS IP Camera Universal Orchestrator extension is supported by Keyfactor. I
 
 Before installing the AXIS IP Camera Universal Orchestrator extension, we recommend that you install [kfutil](https://github.com/Keyfactor/kfutil). Kfutil is a command-line tool that simplifies the process of creating store types, installing extensions, and instantiating certificate stores in Keyfactor Command.
 
-
 1. Out of the box, an AXIS IP Network Camera will typically have configured an **Administrator** account. It is 
 recommended to create a new account specifically for executing API calls. This account will need \'Administrator\' 
 privileges since the orchestrator extension is capable of making configuration changes, such as installing and removing certificates.
 2. Currently supports AXIS M2035-LE Bullet Camera, AXIS OS version 12.2.62. Has not been tested with any other firmware version.
 
-
 ## AxisIPCamera Certificate Store Type
 
 To use the AXIS IP Camera Universal Orchestrator extension, you **must** create the AxisIPCamera Certificate Store Type. This only needs to happen _once_ per Keyfactor Command instance.
-
-
 
 The AXIS IP Camera certificate store type represents a certificate store on an AXIS network camera
 that maintains two separate collections of certificates:
@@ -88,32 +83,28 @@ that maintains two separate collections of certificates:
 
 It is expected that there be one (1) certificate store managed per AXIS network camera.
 
-
-
-
 #### Axis IP Camera Requirements
 
 1. User Account with \'Administrator\' privileges and password to access the camera
 2. Camera serial number
 3. Camera IP address (and likely port number)
 
-
-
 #### Supported Operations
 
-| Operation    | Is Supported                                                                                                           |
-|--------------|------------------------------------------------------------------------------------------------------------------------|
-| Add          | ✅ Checked        |
-| Remove       | ✅ Checked     |
-| Discovery    | 🔲 Unchecked  |
+| Operation    | Is Supported |
+|--------------|--------------|
+| Add          | ✅ Checked |
+| Remove       | ✅ Checked |
+| Discovery    | 🔲 Unchecked |
 | Reenrollment | ✅ Checked |
-| Create       | 🔲 Unchecked     |
+| Create       | 🔲 Unchecked |
 
 #### Store Type Creation
 
 ##### Using kfutil:
 `kfutil` is a custom CLI for the Keyfactor Command API and can be used to create certificate store types.
 For more information on [kfutil](https://github.com/Keyfactor/kfutil) check out the [docs](https://github.com/Keyfactor/kfutil?tab=readme-ov-file#quickstart)
+
    <details><summary>Click to expand AxisIPCamera kfutil details</summary>
 
    ##### Using online definition from GitHub:
@@ -132,10 +123,10 @@ For more information on [kfutil](https://github.com/Keyfactor/kfutil) check out 
    ```
    </details>
 
-
 #### Manual Creation
 Below are instructions on how to create the AxisIPCamera store type manually in
 the Keyfactor Command Portal
+
    <details><summary>Click to expand manual AxisIPCamera details</summary>
 
    Create a store type called `AxisIPCamera` with the attributes in the tables below:
@@ -146,11 +137,11 @@ the Keyfactor Command Portal
    | Name | Axis IP Camera | Display name for the store type (may be customized) |
    | Short Name | AxisIPCamera | Short display name for the store type |
    | Capability | AxisIPCamera | Store type name orchestrator will register with. Check the box to allow entry of value |
-   | Supports Add | ✅ Checked | Check the box. Indicates that the Store Type supports Management Add |
-   | Supports Remove | ✅ Checked | Check the box. Indicates that the Store Type supports Management Remove |
-   | Supports Discovery | 🔲 Unchecked |  Indicates that the Store Type supports Discovery |
-   | Supports Reenrollment | ✅ Checked |  Indicates that the Store Type supports Reenrollment |
-   | Supports Create | 🔲 Unchecked |  Indicates that the Store Type supports store creation |
+   | Supports Add | ✅ Checked | Indicates that the Store Type supports Management Add |
+   | Supports Remove | ✅ Checked | Indicates that the Store Type supports Management Remove |
+   | Supports Discovery | 🔲 Unchecked | Indicates that the Store Type supports Discovery |
+   | Supports Reenrollment | ✅ Checked | Indicates that the Store Type supports Reenrollment |
+   | Supports Create | 🔲 Unchecked | Indicates that the Store Type supports store creation |
    | Needs Server | ✅ Checked | Determines if a target server name is required when creating store |
    | Blueprint Allowed | 🔲 Unchecked | Determines if store type may be included in an Orchestrator blueprint |
    | Uses PowerShell | 🔲 Unchecked | Determines if underlying implementation is PowerShell |
@@ -159,18 +150,18 @@ the Keyfactor Command Portal
 
    The Basic tab should look like this:
 
-   ![AxisIPCamera Basic Tab](docsource/images/AxisIPCamera-basic-store-type-dialog.png)
+   ![AxisIPCamera Basic Tab](docsource/images/AxisIPCamera-basic-store-type-dialog.svg)
 
    ##### Advanced Tab
    | Attribute | Value | Description |
    | --------- | ----- | ----- |
    | Supports Custom Alias | Required | Determines if an individual entry within a store can have a custom Alias. |
-   | Private Key Handling | Forbidden | This determines if Keyfactor can send the private key associated with a certificate to the store. Required because IIS certificates without private keys would be invalid. |
+   | Private Key Handling | Forbidden | This determines if Keyfactor can send the private key associated with a certificate to the store. |
    | PFX Password Style | Default | 'Default' - PFX password is randomly generated, 'Custom' - PFX password may be specified when the enrollment job is created (Requires the Allow Custom Password application setting to be enabled.) |
 
    The Advanced tab should look like this:
 
-   ![AxisIPCamera Advanced Tab](docsource/images/AxisIPCamera-advanced-store-type-dialog.png)
+   ![AxisIPCamera Advanced Tab](docsource/images/AxisIPCamera-advanced-store-type-dialog.svg)
 
    > For Keyfactor **Command versions 24.4 and later**, a Certificate Format dropdown is available with PFX and PEM options. Ensure that **PFX** is selected, as this determines the format of new and renewed certificates sent to the Orchestrator during a Management job. Currently, all Keyfactor-supported Orchestrator extensions support only PFX.
 
@@ -185,8 +176,7 @@ the Keyfactor Command Portal
 
    The Custom Fields tab should look like this:
 
-   ![AxisIPCamera Custom Fields Tab](docsource/images/AxisIPCamera-custom-fields-store-type-dialog.png)
-
+   ![AxisIPCamera Custom Fields Tab](docsource/images/AxisIPCamera-custom-fields-store-type-dialog.svg)
 
    ###### Server Username
    Enter the username of the configured "service" user on the camera
@@ -194,8 +184,6 @@ the Keyfactor Command Portal
 
    > [!IMPORTANT]
    > This field is created by the `Needs Server` on the Basic tab, do not create this field manually.
-
-
 
 
    ###### Server Password
@@ -206,16 +194,10 @@ the Keyfactor Command Portal
    > This field is created by the `Needs Server` on the Basic tab, do not create this field manually.
 
 
-
-
    ###### Use SSL
    Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. This should always be "True"
 
-   ![AxisIPCamera Custom Field - ServerUseSsl](docsource/images/AxisIPCamera-custom-field-ServerUseSsl-dialog.png)
-   ![AxisIPCamera Custom Field - ServerUseSsl](docsource/images/AxisIPCamera-custom-field-ServerUseSsl-validation-options-dialog.png)
-
-
-
+   ![AxisIPCamera Custom Field - ServerUseSsl](docsource/images/AxisIPCamera-custom-field-ServerUseSsl-dialog.svg)
 
 
    ##### Entry Parameters Tab
@@ -226,15 +208,11 @@ the Keyfactor Command Portal
 
    The Entry Parameters tab should look like this:
 
-   ![AxisIPCamera Entry Parameters Tab](docsource/images/AxisIPCamera-entry-parameters-store-type-dialog.png)
-
-
+   ![AxisIPCamera Entry Parameters Tab](docsource/images/AxisIPCamera-entry-parameters-store-type-dialog.svg)
    ##### Certificate Usage
    The Certificate Usage to assign to the cert after enrollment. Can be left 'Other' to be assigned later.
 
-   ![AxisIPCamera Entry Parameter - CertUsage](docsource/images/AxisIPCamera-entry-parameters-store-type-dialog-CertUsage.png)
-   ![AxisIPCamera Entry Parameter - CertUsage](docsource/images/AxisIPCamera-entry-parameters-store-type-dialog-CertUsage-validation-options.png)
-
+   ![AxisIPCamera Entry Parameter - CertUsage](docsource/images/AxisIPCamera-entry-parameters-store-type-dialog-CertUsage.svg)
 
 
    </details>
@@ -243,12 +221,12 @@ the Keyfactor Command Portal
 
 1. **Download the latest AXIS IP Camera Universal Orchestrator extension from GitHub.**
 
-    Navigate to the [AXIS IP Camera Universal Orchestrator extension GitHub version page](https://github.com/Keyfactor/axis-ipcamera-orchestrator/releases/latest). Refer to the compatibility matrix below to determine the asset should be downloaded. Then, click the corresponding asset to download the zip archive.
+    Navigate to the [AXIS IP Camera Universal Orchestrator extension GitHub version page](https://github.com/Keyfactor/axis-ipcamera-orchestrator/releases/latest). Refer to the compatibility matrix below to determine which asset should be downloaded. Then, click the corresponding asset to download the zip archive.
 
    | Universal Orchestrator Version | Latest .NET version installed on the Universal Orchestrator server | `rollForward` condition in `Orchestrator.runtimeconfig.json` | `axis-ipcamera-orchestrator` .NET version to download |
    | --------- | ----------- | ----------- | ----------- |
    | Between `11.0.0` and `11.5.1` (inclusive) | `net8.0` | `LatestMajor` | `net8.0` |
-   | `11.6` _and_ newer | `net8.0` | | `net8.0` | 
+   | `11.6` _and_ newer | `net8.0` | | `net8.0` |
 
     Unzip the archive containing extension assemblies to a known location.
 
@@ -270,16 +248,13 @@ the Keyfactor Command Portal
 
     Refer to [Starting/Restarting the Universal Orchestrator service](https://software.keyfactor.com/Core-OnPrem/Current/Content/InstallingAgents/NetCoreOrchestrator/StarttheService.htm).
 
-
 6. **(optional) PAM Integration**
 
     The AXIS IP Camera Universal Orchestrator extension is compatible with all supported Keyfactor PAM extensions to resolve PAM-eligible secrets. PAM extensions running on Universal Orchestrators enable secure retrieval of secrets from a connected PAM provider.
 
     To configure a PAM provider, [reference the Keyfactor Integration Catalog](https://keyfactor.github.io/integrations-catalog/content/pam) to select an extension and follow the associated instructions to install it on the Universal Orchestrator (remote).
 
-
 > The above installation steps can be supplemented by the [official Command documentation](https://software.keyfactor.com/Core-OnPrem/Current/Content/InstallingAgents/NetCoreOrchestrator/CustomExtensions.htm?Highlight=extensions).
-
 
 ## Post Installation
 
@@ -319,10 +294,7 @@ These values must match or the session will be denied.
 > Therefore, you will need to install the full CA chain - including root and intermediate certificates - into the orchestrator server's local
 > certificate store.
 
-
 ## Defining Certificate Stores
-
-
 
 ### Store Creation
 
@@ -338,8 +310,8 @@ These values must match or the session will be denied.
 
     Click the Add button to add a new Certificate Store. Use the table below to populate the **Attributes** in the **Add** form.
 
-   | Attribute | Description                                             |
-   | --------- |---------------------------------------------------------|
+   | Attribute | Description |
+   | --------- | ----------- |
    | Category | Select "Axis IP Camera" or the customized certificate store name from the previous step. |
    | Container | Optional container to associate certificate store with. |
    | Client Machine | The IP address of the Camera. Sample is "192.167.231.174:44444". Include the port if necessary. |
@@ -350,8 +322,6 @@ These values must match or the session will be denied.
    | ServerUseSsl | Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. This should always be "True" |
 
 </details>
-
-
 
 #### Using kfutil CLI
 
@@ -385,7 +355,6 @@ These values must match or the session will be denied.
 
 </details>
 
-
 #### PAM Provider Eligible Fields
 <details><summary>Attributes eligible for retrieval by a PAM Provider on the Universal Orchestrator</summary>
 
@@ -401,9 +370,7 @@ Please refer to the **Universal Orchestrator (remote)** usage section ([PAM prov
 
 </details>
 
-
 > The content in this section can be supplemented by the [official Command documentation](https://software.keyfactor.com/Core-OnPrem/Current/Content/ReferenceGuide/Certificate%20Stores.htm?Highlight=certificate%20store).
-
 
 ### Certificate Usage
 
@@ -449,7 +416,6 @@ There are five (5) possible options:
 > * DNS = CN set in the Subject DN
 
 
-
 ## Caveats
 
 > [!NOTE] 
@@ -458,7 +424,6 @@ There are five (5) possible options:
 >
 > If a new alias is supplied, a Reenrollment job will not remove the original certificate associated with the \`Certificate Usage\`.
 > Since the camera has limited storage, it will be up to the user to remove any unused certificates via the AXIS Network Camera GUI.
-
 
 ## License
 
