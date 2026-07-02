@@ -96,16 +96,16 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model
             {
                 "RSA" when keySize == "2048" => "RSA-2048",
                 "RSA" when keySize == "4096" => "RSA-4096",
-                "ECP" when keySize == "256" => "EC-P256",
-                "ECP" when keySize == "384" => "EC-P384",
-                "ECP" when keySize == "521" => "EC-P521",
+                "ECDSA" when keySize == "256" => "EC-P256",
+                "ECDSA" when keySize == "384" => "EC-P384",
+                "ECDSA" when keySize == "521" => "EC-P521",
                 _ => "UNKNOWN"
             };
         }
         
         /// <summary>
         /// Maps the certificate usage enum values to the corresponding string values that are configured
-        /// for the "Certificate Usage" entry parameter inside of Command. The string values *MUST* match
+        /// for the "Certificate Usage" entry parameter for the certificate store type in Command. The string values *MUST* match
         /// exactly the value configured for the certificate usage entry parameter in Command.
         /// </summary>
         /// <param name="certUsageEnum"></param>

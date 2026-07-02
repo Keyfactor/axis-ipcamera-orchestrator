@@ -48,7 +48,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 _logger.MethodEntry();
                 
                 _logger.LogTrace($"Begin Inventory for Client Machine {config.CertificateStoreDetails.ClientMachine}...");
-                string jsonConfig = JsonConvert.SerializeObject(config);
+                string jsonConfig = JsonConvert.SerializeObject(config, Formatting.Indented);
                 _logger.LogDebug($"Inventory Config: {jsonConfig.Replace(config.ServerPassword,"**********")}");
                 
                 _logger.LogTrace("Create HTTPS client to connect to device");
@@ -114,7 +114,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     }
                 }
 
-                // Build the list of CA certificates and add to the InventoryItems object that is sent back to Command
+                // Build the list of CA certificates and add to the InventoryItems object sent back to Command
                 inventoryItems.AddRange(data1.CACerts.Select(
                     c =>
                     {
@@ -131,7 +131,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                         }
                     }).Where(item => item?.Certificates != null).ToList());
                 
-                // Build the list of client certificates and add to the InventoryItems object that is sent back to Command
+                // Build the list of client certificates and add to the InventoryItems object sent back to Command
                 inventoryItems.AddRange(data2.Certs.Select(
                     c =>
                     {
