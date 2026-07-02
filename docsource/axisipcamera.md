@@ -41,11 +41,17 @@ There are five (5) possible options:
 > [!NOTE] 
 > A Reenrollment (ODKG) job will not allow enrollment of certificates with **Trust** assigned as the \`Certificate Usage\`.
 > Trust CA certificates can be added to the camera via a Management - Add job.
+> These CA certificates establish trust for TLS connections initiated by the camera.
 
 > [!NOTE]
-> For a Reenrollment (ODKG) job, where the \`Certificate Usage\` assigned is **HTTPS**, IP and DNS are added as SANS
-> to the enrolled certificate.
+> As of Keyfactor Command v25.4, SANs can be provided for a Reenrollment (ODKG) job.
+> You must also have installed, at minimum, the Keyfactor Universal Orchestator v25.1
+> in order for the SANs to be sent to the orchestrator.
 > 
-> IP = Client Machine configured for the certificate store (excluding any port)
+> The Axis IP Camera API *only* supports the addition of DNS and IP SANs. If you add other SAN types to the ODKG job, these will be ignored and not added to the certificate.
 > 
-> DNS = CN set in the Subject DN
+> * If SANs are NOT provided and the \`Certificate Usage\` assigned is **HTTPS**, IP and DNS will be automatically added as SANs to an enrolled certificate associated with a NEW alias.
+>
+> * IP = Client Machine configured for the certificate store (excluding any port)
+> 
+> * DNS = CN set in the Subject DN
