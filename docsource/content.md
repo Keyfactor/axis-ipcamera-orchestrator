@@ -22,6 +22,49 @@ The Axis IP Camera Orchestrator extension DOES NOT support the following use cas
 
 \* Currently supported certificate usages include: **HTTPS**, **IEEE802.X**, **MQTT**, **Other**
 
+## Enrollment Behavior
+
+The following enrollment behaviors are specific to AXIS cameras and should be considered when designing certificate automation workflows.
+
+### Alias Versioning
+
+AXIS cameras require each Alias to be unique, and each Alias is tightly coupled with the private key used to generate its certificate. Because of this, certificates cannot be reenrolled in place by replacing the certificate and private key associated with an existing Alias.
+
+To support certificate renewals and automation workflows, the orchestrator generates a unique Alias by appending the following suffix:
+
+`_yyMMddHHmm`
+
+where `yyMMddHHmm` represents the current UTC date and time.
+
+From an automation perspective, the same Alias can continue to be reused, as uniqueness is enforced by the integration.
+
+> [!NOTE]
+> As of v1.1.0, Reenrollment jobs automatically manage versioned Aliases. When reenrolling a certificate using the same Alias, the integration creates a new certificate using a versioned Alias and removes the previously enrolled certificate associated with the same base Alias.
+>
+> Because AXIS cameras do not support in-place certificate replacement, a new versioned Alias is still created during reenrollment. The integration identifies and removes the previous certificate by matching the base Alias name and ignoring the timestamp suffix.
+>
+> If a new Alias is supplied during reenrollment, the original certificate (if one exists) associated with the selected `Certificate Usage` is **not** automatically removed from the camera. Because AXIS cameras have limited certificate and key storage capacity, users should periodically review and remove unused certificates through the AXIS Network Camera GUI.
+
+### Certificate Usage Considerations (Trust)
+
+> [!NOTE]
+> If a Reenrollment (ODKG) job is configured with `Trust` selected as the `Certificate Usage`, the job will return a warning indicating that the operation is not supported.
+>
+> Trust CA certificates must be installed using a **Management - Add** job. These certificates establish trust for TLS connections initiated by the camera.
+
+### Subject Alternative Names (SANs)
+
+As of Keyfactor Command v25.4, Subject Alternative Names (SANs) can be specified for Reenrollment (ODKG) jobs. Support for passing SANs to the orchestrator also requires, at minimum, Keyfactor Universal Orchestrator v25.1.
+
+The AXIS IP Camera API only supports DNS and IP SAN types. Any other SAN types included in the Reenrollment job will be ignored and will not be added to the enrolled certificate.
+
+> [!NOTE]
+> If SANs are not provided and the selected `Certificate Usage` is `HTTPS`, IP and DNS SANs are automatically added when enrolling a certificate associated with a new Alias:
+>
+> - **IP** = The Client Machine configured for the certificate store (excluding any port number)
+> - **DNS** = The Common Name (CN) specified in the certificate Subject DN
+
+
 ## Requirements
 
 1. Out of the box, an AXIS IP Network Camera will typically have configured an **Administrator** account. It is 
@@ -67,11 +110,12 @@ These values must match or the session will be denied.
 > Therefore, you will need to install the full CA chain - including root and intermediate certificates - into the orchestrator server's local
 > certificate store.
 
-## Caveats
+## Operational Notes
 
-> [!NOTE] 
-> v1.1.0 - A Reenrollment job will now replace the certificate contents for an existing alias on the camera, therefore, not requiring
-> a new alias be supplied for every new certificate enrollment.
->
-> If a new alias is supplied, a Reenrollment job will not remove the original certificate associated with the \`Certificate Usage\`.
-> Since the camera has limited storage, it will be up to the user to remove any unused certificates via the AXIS Network Camera GUI.
+### AXIS OS 12 Firmware Recommendation
+
+> [!IMPORTANT]
+> Devices running the AXIS OS 12 release track should always be updated to the latest firmware version available from Axis. Previous firmware versions are no longer supported once a newer release becomes available.
+
+Axis identified a memory leak in older firmware releases that may cause device keystore storage to become exhausted over time. If keystore storage issues are observed, verify that the device is running the latest supported firmware version.
+ 
