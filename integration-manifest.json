@@ -27,7 +27,6 @@
           "PrivateKeyAllowed": "Forbidden",
           "SupportedOperations": {
             "Add": true,
-            "Create": false,
             "Discovery": false,
             "Enrollment": true,
             "Remove": true

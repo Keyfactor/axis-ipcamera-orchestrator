@@ -37,15 +37,3 @@ There are five (5) possible options:
    - This certificate usage describes a public certificate issued by a CA used to establish trust. 
 5. Other
    - This certificate usage identifies all other certificates on the camera that do not fall under the pre-defined usages above.
-
-> [!NOTE] 
-> A Reenrollment (ODKG) job will not allow enrollment of certificates with **Trust** assigned as the \`Certificate Usage\`.
-> Trust CA certificates can be added to the camera via a Management - Add job.
-
-> [!NOTE]
-> For a Reenrollment (ODKG) job, where the \`Certificate Usage\` assigned is **HTTPS**, IP and DNS are added as SANS
-> to the enrolled certificate.
-> 
-> IP = Client Machine configured for the certificate store (excluding any port)
-> 
-> DNS = CN set in the Subject DN
