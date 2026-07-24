@@ -17,12 +17,12 @@ using System.Xml.Linq;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using RestSharp;
-using RestSharp.Authenticators;
 
 using Keyfactor.Logging;
 using Keyfactor.Orchestrators.Extensions;
-using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
 using Keyfactor.Orchestrators.Extensions.Interfaces;
+using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Exceptions;
+using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
 using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers;
 
 /* AxisHttpClient.cs
@@ -67,46 +67,62 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
             try
             {
                 var errorContext = new CertificateErrorContext();
-                
+
                 Logger = LogHandler.GetClassLogger<AxisHttpClient>();
                 Logger.LogTrace("Entered AxisHttpClient constructor.");
                 Logger.LogTrace("Initializing Axis IP Camera HTTP client");
-                
+
                 // ** NOTE: Ignoring the default config.UseSSL custom field --- we will always connect to the device via HTTPS
                 var baseRestClientUrl = $"https://{store.ClientMachine}";
-                
+
                 Logger.LogDebug($"Base HTTP client URL: {baseRestClientUrl}");
 
-                // Initialize custom HTTP handler to validate device identity
-                RestClientOptions options = null;
-                Logger.LogTrace($"Adding custom TLS cert validator to the HTTP client options...");
+                // Retrieve username and password credentials to connect to the device
+                Logger.LogTrace("Adding device credentials to the HTTP client options...");
+                string username = PAMUtilities.ResolvePAMField(resolver, Logger, "API Username", config.ServerUsername);
+                string password = PAMUtilities.ResolvePAMField(resolver, Logger, "API Password", config.ServerPassword);
+
+                // See ADR-0001 Axis Camera Authentication Negotiation
+                // https://keyfactor.atlassian.net/wiki/spaces/IoTStrategy/pages/2968584197/ADR-0001+Axis+Camera+Authentication+Negotiation
+                //
+                // The client intentionally uses HttpClientHandler credentials
+                // rather than RestSharp's HttpBasicAuthenticator to allow
+                // automatic negotiation of Basic vs Digest authentication
+                // based on the authentication challenge presented by the camera.
+                Logger.LogInformation($"Adding custom TLS cert validator to the HTTP client options.");
+                Logger.LogInformation($"Using HttpClientHandler credential negotiation for camera authentication.");
                 var handler = new HttpClientHandler
                 {
                     ServerCertificateCustomValidationCallback =
-                        DeviceCertValidator.GetValidator(store.StorePath, errorContext, Logger)
+                        DeviceCertValidator.GetValidator(
+                            store.StorePath,
+                            errorContext,
+                            Logger),
+
+                    Credentials = new NetworkCredential(username, password),
+
+                    PreAuthenticate =
+                        false // PreAuthenticate is set to false to avoid the default behavior of sending the username and password in the Authorization header
                 };
+                // End ADR-0001 
 
                 // Initialize HTTP client options with the base URL and custom TLS cert validator
-                options = new RestClientOptions(baseRestClientUrl)
+                RestClientOptions options = new RestClientOptions(baseRestClientUrl)
                 {
                     ConfigureMessageHandler = _ => handler
                 };
-
-                // Add Basic Auth username and password credentials
-                Logger.LogTrace("Adding Basic Auth Credentials to the HTTP client options...");
-                string username = PAMUtilities.ResolvePAMField(resolver, Logger, "API Username", config.ServerUsername);
-                string password = PAMUtilities.ResolvePAMField(resolver, Logger, "API Password", config.ServerPassword);
-                
-                options.Authenticator = new HttpBasicAuthenticator(username, password);
 
                 // Add SSL validation
                 Logger.LogTrace("Validating connection to the device...");
 
                 _httpClient = new RestClient(options);
-                var request = new RestRequest("/"); // Initiates the TLS handshake to retrieve the server cert
+                // Initiates the TLS handshake to verify the ability to authenticate to the camera
+                var request = new RestRequest("axis-cgi/param.cgi?action=list&group=Network.HTTP.AuthenticationPolicy");
                 var response = _httpClient.Execute(request);
 
-                // Build the list of errors to log to the console
+                Logger.LogTrace($"Connection to the device response status code: {response.StatusCode}");
+                
+                // Build the list of SSL certificate errors and log to the console
                 StringBuilder errorSb = new StringBuilder();
                 if (errorContext.HasErrors)
                 {
@@ -114,17 +130,55 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     {
                         errorSb.AppendLine(error);
                     }
-                    throw new Exception(errorSb.ToString());
+
+                    throw new DeviceCertValidationException(
+                        $"Device TLS cert validator errors encountered --- {errorSb}");
                 }
-                
-                Logger.LogTrace($"Connection to the device response status code: {response.StatusCode}");
+
+                // Begin ADR-0001 Axis Camera Authentication Negotiation
+                // Log the WWW-Authenticate headers if 401 Unauthorized returned
+                // Throw exception if connection cannot be made successfully to the camera
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    Logger.LogWarning("Camera returned 401 Unauthorized");
+
+                    foreach (var header in response.Headers)
+                    {
+                        Logger.LogDebug($"WWW-Authenticate header: {header.Value}");
+                    }
+
+                    throw new AuthenticationException(
+                        "Authentication to the Axis camera failed due to 401 Unauthorized. Verify the configured credentials.");
+                }
+
+                if (!response.IsSuccessful)
+                {
+                    throw new Exception(response.ErrorMessage);
+                }
+                // End ADR-0001 
+
                 Logger.LogTrace("Completed Initialization of Axis IP Camera HTTP Client");
                 Logger.LogTrace("Leaving AxisHttpClient constructor.");
             }
-            catch (Exception e)
+            catch (DeviceCertValidationException ex)
             {
-                Logger.LogError("Error initializing Axis IP Camera HTTP Client: " + LogHandler.FlattenException(e));
-                throw new Exception($"Device identity could not be verified successfully --- {e.Message}");
+                Logger.LogError("Device TLS cert validation failed while connecting to the device: " + LogHandler.FlattenException(ex));
+                throw new Exception(ex.Message);
+            }
+            catch (AuthenticationException ex1)
+            {
+                Logger.LogError("Authentication to the device failed: " + LogHandler.FlattenException(ex1));
+                throw new Exception(ex1.Message);
+            }
+            catch (HttpRequestException ex2)
+            {
+                Logger.LogError("Failed to communicate with the device: " + LogHandler.FlattenException(ex2));
+                throw new Exception(ex2.Message);
+            }
+            catch (Exception ex3)
+            {
+                Logger.LogError("Unexpected error while connecting to the device: " + LogHandler.FlattenException(ex3));
+                throw new Exception(ex3.Message);
             }
         }
 

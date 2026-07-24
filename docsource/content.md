@@ -72,6 +72,19 @@ recommended to create a new account specifically for executing API calls. This a
 privileges since the orchestrator extension is capable of making configuration changes, such as installing and removing certificates.
 2. Currently supports AXIS M2035-LE Bullet Camera, AXIS OS version 12.2.62. Has not been tested with any other firmware version.
 
+### Authentication
+
+The Axis IP Camera Orchestrator Extension uses .NET HttpClientHandler credential negotiation when connecting to Axis devices over HTTPS.
+This allows the orchestrator to automatically negotiate the authentication mechanism required by the camera.
+The orchestrator has been validated against Axis cameras configured with:
+
+- Basic
+- Digest
+- Basic & Digest
+- Recommended
+
+As a result, customer-side changes to camera authentication policies are generally not required.
+
 ## Post Installation
 
 The AXIS IP Camera Orchestrator Extension *always* connects to an AXIS IP Network Camera via HTTPS, regardless
@@ -109,6 +122,23 @@ These values must match or the session will be denied.
 > After associating a CA-signed certificate with the HTTP server via the Reenrollment job, you need to make sure the orchestrator server trusts the HTTPS certificate.
 > Therefore, you will need to install the full CA chain - including root and intermediate certificates - into the orchestrator server's local
 > certificate store.
+
+## Troubleshooting
+
+### 401 Unauthorized Responses
+
+The Axis IP Camera Orchestrator Extension supports authentication negotiation and has been validated against Axis cameras configured for:
+
+- Basic
+- Digest
+- Basic & Digest
+- Recommended
+
+If a 401 Unauthorized response is encountered:
+
+1. Verify the configured credentials.
+2. Verify connectivity to the device.
+3. Review orchestrator logs for authentication-related messages.
 
 ## Operational Notes
 

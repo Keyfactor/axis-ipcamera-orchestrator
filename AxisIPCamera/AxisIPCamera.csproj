@@ -21,8 +21,6 @@
     
     <PackageReference Include="RestSharp" Version="112.1.0" />
     
-    <PackageReference Include="System.Formats.Asn1" Version="8.0.1" />
-    
     <None Update="manifest.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
