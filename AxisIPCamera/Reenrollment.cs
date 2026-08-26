@@ -6,9 +6,6 @@
 // and limitations under the License.
 
 using System;
-using System.Collections.Generic;
-using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
@@ -21,9 +18,6 @@ using Keyfactor.Extensions.Orchestrator.AxisIPCamera.Model;
 using Keyfactor.Orchestrators.Common.Enums;
 using Keyfactor.Orchestrators.Extensions;
 using Keyfactor.Orchestrators.Extensions.Interfaces;
-using Keyfactor.PKI.Enums;
-using Keyfactor.PKI.X509;
-//using Org.BouncyCastle.X509;
 
 namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
 {
@@ -48,7 +42,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 _logger.MethodEntry();
                 
                 _logger.LogTrace($"Begin Reenrollment for Client Machine {config.CertificateStoreDetails.ClientMachine}");
-                string jsonConfig = JsonConvert.SerializeObject(config);
+                string jsonConfig = JsonConvert.SerializeObject(config, Formatting.Indented);
                 _logger.LogDebug($"Reenrollment Config: {jsonConfig.Replace(config.ServerPassword,"**********")}");
 
                 // Log each key-value pair in the Job Properties for debugging
@@ -88,7 +82,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 if (certUsageEnum is Constants.CertificateUsage.Trust)
                 {
                     throw new Exception(
-                        "Reenrollment cannot be performed on a store when the certificate usage is marked as 'Trust' or 'None'");
+                        "Reenrollment cannot be performed on a store when the certificate usage is marked as 'Trust' or 'Other'");
                 }
                 
                 _logger.LogTrace("Create HTTPS client to connect to device");
@@ -118,13 +112,14 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 }
 
                 // Map the key type and key size from the job properties to a corresponding key type available on the device
+                _logger.LogTrace($"Mapping key type and key size from job properties to a corresponding key type available on the device: '{keyAlgorithm}' '{keySize}'");
                 string keyType = Constants.MapKeyType(keyAlgorithm, keySize);
                 _logger.LogDebug($"Mapped Key Type: {keyType}");
                 if (keyType == "UNKNOWN")
                 {
                     throw new Exception(
                         $"The key algorithm '{keyAlgorithm}' and key size '{keySize}' selected for reenrollment " +
-                        $"do not correspond to a valid key algorithm and" +
+                        $"do not correspond to a valid key algorithm and " +
                         $"key size on the device.");
                 }
                 
@@ -199,11 +194,10 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                     
                 // Perform unused certificate cleanup --- 
                 // 1) If a bound alias exists, delete the bound alias
-                HttpResult result;
                 if (oldCertExists)
                 {
                     _logger.LogTrace($"Removing certificate and private key associated with alias '{oldAlias}'");
-                    result = client.RemoveCertificate(oldAlias);
+                    var result = client.RemoveCertificate(oldAlias);
 
                     if (result.Status == HttpStatus.Warning)
                     {
@@ -211,24 +205,11 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                             FailureMessage = $"Reenrollment Job Had Warnings - Refer to logs for more detailed information." };
                     }
                 }
-
-
-                // TESTING build chain functionality
-                /*using var aiaClient = new HttpClient();
-                var builder = new ChainBuilder(aiaClient);
-                var bcX509Cert = new X509CertificateParser().ReadCertificate(x509Cert.RawData);
-                var chain = builder.BuildChain(bcX509Cert, CertificateCollectionOrder.EndEntityFirst);
-
-                int i = 0;
-                foreach (var cert in chain.Certificates)
-                {
-                    i++;
-                    _logger.LogTrace($"Cert {i}: {cert.SubjectDN.ToString()}");
-                }*/
             }
             catch (Exception ex)
             {
                 //Status: 2=Success, 3=Warning, 4=Error
+                _logger.LogError($"Reenrollment Job Failed: {ex.Message}");
                 return new JobResult() { Result = OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, 
                     FailureMessage = $"Reenrollment Job Failed: {ex.Message} - Refer to logs for more detailed information." };
             }

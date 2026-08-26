@@ -2,7 +2,7 @@
 
 The AXIS IP Camera certificate store type represents a certificate store on an AXIS network camera
 that maintains two separate collections of certificates:
-* Client-server certificates (certs with private keys)
+* Identity certificates (certs with private keys)
 * CA certificates
 
 It is expected that there be one (1) certificate store managed per AXIS network camera.
