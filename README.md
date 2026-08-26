@@ -32,24 +32,24 @@
 ## Overview
 
 The AXIS IP Camera Orchestrator extension remotely manages certificates on AXIS IP Network Cameras. This
-orchestrator extension inventories certificates on the camera's certificate store, and it also supports adding new client-server certificates and adding/removing CA certificates.
-New client-server certificates are created in the AXIS camera certificate store via On Device Key Generation (ODKG aka Reenrollment).
+orchestrator extension inventories certificates on the camera's certificate store, and it also supports adding new identity certificates and adding/removing CA certificates.
+New identity certificates are created in the AXIS camera certificate store via On Device Key Generation (ODKG aka Reenrollment).
 This means that certificates cannot be directly added to the AXIS camera, but instead the keypair is generated on the AXIS device and a certificate is issued for that keypair via a CSR submitted to Command for enrollment. 
 This workflow is completely automated in the AXIS IP Camera Orchestrator extension. CA certificates can be added to the camera from uploaded CA certificates in Command.
 
 ### Use Cases
 
-The AXIS IP Camera Orchestrator extension supports the following use cases:
+#### Supported
 
-1. Inventory of client-server & CA certificates 
-2. Enrollment of client-server certificates with ability to bind the certificate for a specific usage*
+1. Inventory of identity & CA certificates 
+2. Enrollment of identity certificates with ability to bind the certificate for a specific usage*
 3. Ability to remove CA certificates from the camera
 4. Ability to add CA certificates to the camera
 
-The Axis IP Camera Orchestrator extension DOES NOT support the following use cases:
+#### Not Supported
 
-1. Ability to remove client-server certificates from the camera
-2. Ability to add client-server certificates to the camera
+1. Ability to remove identity certificates from the camera
+2. Ability to add identity certificates to the camera
 
 \* Currently supported certificate usages include: **HTTPS**, **IEEE802.X**, **MQTT**, **Other**
 
@@ -91,7 +91,7 @@ To use the AXIS IP Camera Universal Orchestrator extension, you **must** create 
 
 The AXIS IP Camera certificate store type represents a certificate store on an AXIS network camera
 that maintains two separate collections of certificates:
-* Client-server certificates (certs with private keys)
+* Identity certificates (certs with private keys)
 * CA certificates
 
 It is expected that there be one (1) certificate store managed per AXIS network camera.
@@ -436,6 +436,25 @@ From an automation perspective, the same Alias can continue to be reused, as uni
 > Because AXIS cameras do not support in-place certificate replacement, a new versioned Alias is still created during reenrollment. The integration identifies and removes the previous certificate by matching the base Alias name and ignoring the timestamp suffix.
 >
 > If a new Alias is supplied during reenrollment, the original certificate (if one exists) associated with the selected `Certificate Usage` is **not** automatically removed from the camera. Because AXIS cameras have limited certificate and key storage capacity, users should periodically review and remove unused certificates through the AXIS Network Camera GUI.
+
+### Configuration Example
+
+The following example demonstrates how Alias versioning behaves in a Reenrollment (ODKG) job configuration:
+
+- **Store Path:** camera serial number, e.g. `0b7c3d2f9e8a`
+- **Overwrite:** `true` or `false` *(has no bearing on Alias or certificate behavior)*
+- **Alias:** `https-cert` *(the Alias that will appear on the camera)*
+- **Certificate Usage:** any of `HTTPS`, `IEEE802.X`, `MQTT`, `Other` *(`Trust` is not supported for Reenrollment jobs — see [Certificate Usage Considerations (Trust)](#certificate-usage-considerations-trust) below)*
+
+In this configuration:
+- The Reenrollment job generates a new identity certificate and assigns it a versioned Alias by appending a `_yyMMddHHmm` timestamp suffix, e.g. `https-cert_2508251200`
+- A later Reenrollment job using the same `https-cert` Alias and the same Certificate Usage creates another versioned Alias (e.g. `https-cert_2509031400`) and removes the certificate tied to the previous versioned Alias, matching on the base Alias name and ignoring the timestamp suffix
+- If a different Alias is supplied on a later job, the original certificate associated with the selected Certificate Usage is **not** automatically removed and must be cleaned up manually via the AXIS Network Camera GUI
+
+Operational behavior:
+- The **Overwrite** setting has no effect on Alias or certificate behavior — AXIS cameras do not support in-place certificate replacement, so a new versioned Alias is always created regardless of how Overwrite is set
+- The base Alias name (excluding the timestamp suffix) is what the integration uses to identify and remove a previously enrolled certificate
+- Certificate Usage determines whether Reenrollment is even supported — jobs configured with `Trust` as the Certificate Usage return a warning instead of enrolling
 
 ### Certificate Usage Considerations (Trust)
 
