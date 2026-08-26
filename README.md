@@ -72,6 +72,19 @@ recommended to create a new account specifically for executing API calls. This a
 privileges since the orchestrator extension is capable of making configuration changes, such as installing and removing certificates.
 2. Currently supports AXIS M2035-LE Bullet Camera, AXIS OS version 12.2.62. Has not been tested with any other firmware version.
 
+### Authentication
+
+The Axis IP Camera Orchestrator Extension uses .NET HttpClientHandler credential negotiation when connecting to Axis devices over HTTPS.
+This allows the orchestrator to automatically negotiate the authentication mechanism required by the camera.
+The orchestrator has been validated against Axis cameras configured with:
+
+- Basic
+- Digest
+- Basic & Digest
+- Recommended
+
+As a result, customer-side changes to camera authentication policies are generally not required.
+
 ## AxisIPCamera Certificate Store Type
 
 To use the AXIS IP Camera Universal Orchestrator extension, you **must** create the AxisIPCamera Certificate Store Type. This only needs to happen _once_ per Keyfactor Command instance.
@@ -229,10 +242,11 @@ the Keyfactor Command Portal
    | --------- | ----------- | ----------- | ----------- |
    | Between `11.0.0` and `11.5.1` (inclusive) | `net8.0` | `LatestMajor` | `net8.0` |
    | `11.6` _and_ newer | `net8.0` | | `net8.0` |
+   | `25.5` _and_ newer | `net10.0` | | `net10.0` |
 
     Unzip the archive containing extension assemblies to a known location.
 
-    > **Note** If you don't see an asset with a corresponding .NET version, you should always assume that it was compiled for `net8.0`.
+    > **Note** If you don't see an asset with a corresponding .NET version, you should always assume that it was compiled for `net10.0`.
 
 2. **Locate the Universal Orchestrator extensions directory.**
 
@@ -441,6 +455,23 @@ The AXIS IP Camera API only supports DNS and IP SAN types. Any other SAN types i
 >
 > - **IP** = The Client Machine configured for the certificate store (excluding any port number)
 > - **DNS** = The Common Name (CN) specified in the certificate Subject DN
+
+## Troubleshooting
+
+### 401 Unauthorized Responses
+
+The Axis IP Camera Orchestrator Extension supports authentication negotiation and has been validated against Axis cameras configured for:
+
+- Basic
+- Digest
+- Basic & Digest
+- Recommended
+
+If a 401 Unauthorized response is encountered:
+
+1. Verify the configured credentials.
+2. Verify connectivity to the device.
+3. Review orchestrator logs for authentication-related messages.
 
 ## Operational Notes
 
