@@ -1,4 +1,4 @@
-﻿// Copyright 2025 Keyfactor
+﻿// Copyright 2026 Keyfactor
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
@@ -258,7 +258,11 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             byte[] certBytes = Convert.FromBase64String(certBase64Der);
                         
             // Create an X509 object so we can analyze the contents
-            X509Certificate2 certToAdd = new X509Certificate2(certBytes);
+            #if NET9_0_OR_GREATER
+                X509Certificate2 certToAdd = X509CertificateLoader.LoadCertificate(certBytes);
+            #else
+                X509Certificate2 certToAdd = new X509Certificate2(certBytes);
+            #endif
 
             foreach (X509Extension ext in certToAdd.Extensions)
             {
