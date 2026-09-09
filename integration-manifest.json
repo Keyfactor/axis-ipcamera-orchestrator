@@ -6,8 +6,8 @@
   "support_level": "kf-supported",
   "release_project":"AxisIPCamera\\AxisIPCamera.csproj",
   "release_dir": "AxisIPCamera\\bin\\Release",
-  "update_catalog": true,
   "link_github": true,
+  "update_catalog": true,
   "description": "The Axis IP Camera Orchestrator Extension is used to inventory, manage Trust certs, and enroll for client certificates that can be bound to endpoints.",
   "short_description": "The Axis IP Camera Orchestrator Extension is used to inventory, manage Trust certs, and enroll for client certificates that can be bound to endpoints.",
   "about": {
