@@ -90,7 +90,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 // automatic negotiation of Basic vs Digest authentication
                 // based on the authentication challenge presented by the camera.
                 Logger.LogInformation($"Adding custom TLS cert validator to the HTTP client options.");
-                Logger.LogInformation($"Using HttpClientHandler credential negotiation for camera authentication.");
+                Logger.LogTrace($"Using HttpClientHandler credential negotiation for camera authentication.");
                 var handler = new HttpClientHandler
                 {
                     ServerCertificateCustomValidationCallback =
