@@ -90,7 +90,14 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 // automatic negotiation of Basic vs Digest authentication
                 // based on the authentication challenge presented by the camera.
                 Logger.LogInformation($"Adding custom TLS cert validator to the HTTP client options.");
-                Logger.LogInformation($"Using HttpClientHandler credential negotiation for camera authentication.");
+                Logger.LogTrace($"Using HttpClientHandler credential negotiation for camera authentication.");
+
+                // This client uses a dedicated validator (DeviceCertValidator) rather than
+                // .NET's default TLS validation because trust here isn't a plain pass/fail
+                // chain check: it also matches the certificate's SERIALNUMBER subject field
+                // against store.StorePath, an application-specific trust rule .NET's default
+                // validation can't express. The validator also captures and surfaces the
+                // specific validation failure reason instead of a generic exception message.
                 var handler = new HttpClientHandler
                 {
                     ServerCertificateCustomValidationCallback =
