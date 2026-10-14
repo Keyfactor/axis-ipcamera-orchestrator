@@ -16,6 +16,7 @@ using System.Xml;
 using System.Xml.Linq;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using RestSharp;
 
 using Keyfactor.Logging;
@@ -72,8 +73,20 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 Logger.LogTrace("Entered AxisHttpClient constructor.");
                 Logger.LogTrace("Initializing Axis IP Camera HTTP client");
 
-                // ** NOTE: Ignoring the default config.UseSSL custom field --- we will always connect to the device via HTTPS
-                var baseRestClientUrl = $"https://{store.ClientMachine}";
+                // ServerUseSsl is a reserved custom store property name that the SDK binds directly onto
+                // config.UseSSL, so it's read from there rather than parsed out of the Properties JSON blob.
+                // BypassTlsValidation is not a reserved name, so it still has to be parsed manually.
+                bool serverUseSsl = config.UseSSL;
+
+                bool bypassTlsValidation = false;
+                if (!string.IsNullOrWhiteSpace(store.Properties))
+                {
+                    var storeProperties = JObject.Parse(store.Properties);
+                    bypassTlsValidation = storeProperties["BypassTlsValidation"]?.Value<bool>() ?? false;
+                }
+
+                var protocol = serverUseSsl ? "https" : "http";
+                var baseRestClientUrl = $"{protocol}://{store.ClientMachine}";
 
                 Logger.LogDebug($"Base HTTP client URL: {baseRestClientUrl}");
 
@@ -89,12 +102,23 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 // rather than RestSharp's HttpBasicAuthenticator to allow
                 // automatic negotiation of Basic vs Digest authentication
                 // based on the authentication challenge presented by the camera.
-                Logger.LogInformation($"Adding custom TLS cert validator to the HTTP client options.");
-                Logger.LogInformation($"Using HttpClientHandler credential negotiation for camera authentication.");
+                Logger.LogInformation($"Adding custom TLS cert validator to the HTTP client options. BypassTlsValidation={bypassTlsValidation}");
+                Logger.LogTrace($"Using HttpClientHandler credential negotiation for camera authentication.");
+
+                // ServerCertificateCustomValidationCallback only fires during an actual TLS handshake, so
+                // it - and 'BypassTlsValidation' - has no effect when serverUseSsl is false (plain HTTP).
+                //
+                // When 'BypassTlsValidation' is false, this client uses a dedicated validator
+                // (DeviceCertValidator) rather than .NET's default TLS validation, because trust here
+                // isn't a plain pass/fail chain check: it also matches the certificate's SERIALNUMBER
+                // subject field against store.StorePath, an application-specific trust rule .NET's
+                // default validation can't express. The validator also captures and surfaces the
+                // specific validation failure reason instead of a generic exception message.
                 var handler = new HttpClientHandler
                 {
-                    ServerCertificateCustomValidationCallback =
-                        DeviceCertValidator.GetValidator(
+                    ServerCertificateCustomValidationCallback = bypassTlsValidation
+                        ? (_, _, _, _) => true
+                        : DeviceCertValidator.GetValidator(
                             store.StorePath,
                             errorContext,
                             Logger),
@@ -266,8 +290,14 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                     RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
                     if (apiResponse.Status == Constants.Status.Success)
                     {
+                        var result = JsonConvert.DeserializeObject<CertificateData>(httpResponse.Content);
+                        if (result.Certs == null || result.Certs.Count == 0)
+                        {
+                            throw new Exception("No device ID certificates were returned by the device. The camera's built-in device ID certificates should always be present.");
+                        }
+
                         Logger.MethodExit();
-                        return JsonConvert.DeserializeObject<CertificateData>(httpResponse.Content);
+                        return result;
                     }
                     else
                     {
