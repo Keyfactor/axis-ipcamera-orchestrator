@@ -6,6 +6,9 @@
 ### Keyfactor Custom - Ignore any Jetbrains tools
 .idea/
 
+### Keyfactor Custom - local-only tracking notes, not part of the shipped repo
+README_TODO.md
+
 # User-specific files
 *.rsuser
 *.suo

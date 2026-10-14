@@ -193,7 +193,8 @@ the Keyfactor Command Portal
    | ---- | ------------ | ---- | --------------------- | -------- | ----------- |
    | ServerUsername | Server Username | Enter the username of the configured "service" user on the camera | Secret |  | ✅ Checked |
    | ServerPassword | Server Password | Enter the password of the configured "service" user on the camera | Secret |  | ✅ Checked |
-   | ServerUseSsl | Use SSL | Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. This should always be "True" | Bool | true | ✅ Checked |
+   | ServerUseSsl | Use SSL | Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. | Bool | true | ✅ Checked |
+   | BypassTlsValidation | Bypass TLS Validation | If true and 'Use SSL' is enabled, TLS certificate validation is skipped when connecting to the camera. Has no effect when 'Use SSL' is false. Only enable this when the camera's certificate cannot be trusted by the orchestrator server. | Bool | false | ✅ Checked |
 
    The Custom Fields tab should look like this:
 
@@ -216,10 +217,17 @@ the Keyfactor Command Portal
 
 
    ###### Use SSL
-   Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. This should always be "True"
+   Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera.
 
    ![AxisIPCamera Custom Field - ServerUseSsl](docsource/images/AxisIPCamera-custom-field-ServerUseSsl-dialog.svg)
    ![AxisIPCamera Custom Field - ServerUseSsl](docsource/images/AxisIPCamera-custom-field-ServerUseSsl-validation-options-dialog.svg)
+
+
+   ###### Bypass TLS Validation
+   If true and 'Use SSL' is enabled, TLS certificate validation is skipped when connecting to the camera. Has no effect when 'Use SSL' is false. Only enable this when the camera's certificate cannot be trusted by the orchestrator server.
+
+   ![AxisIPCamera Custom Field - BypassTlsValidation](docsource/images/AxisIPCamera-custom-field-BypassTlsValidation-dialog.svg)
+   ![AxisIPCamera Custom Field - BypassTlsValidation](docsource/images/AxisIPCamera-custom-field-BypassTlsValidation-validation-options-dialog.svg)
 
 
    ##### Entry Parameters Tab
@@ -305,7 +313,8 @@ the Keyfactor Command Portal
    | Orchestrator | Select an approved orchestrator capable of managing `AxisIPCamera` certificates. Specifically, one with the `AxisIPCamera` capability. |
    | ServerUsername | Enter the username of the configured "service" user on the camera |
    | ServerPassword | Enter the password of the configured "service" user on the camera |
-   | ServerUseSsl | Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. This should always be "True" |
+   | ServerUseSsl | Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. |
+   | BypassTlsValidation | If true and 'Use SSL' is enabled, TLS certificate validation is skipped when connecting to the camera. Has no effect when 'Use SSL' is false. Only enable this when the camera's certificate cannot be trusted by the orchestrator server. |
 
 </details>
 
@@ -331,7 +340,8 @@ the Keyfactor Command Portal
    | Orchestrator | Select an approved orchestrator capable of managing `AxisIPCamera` certificates. Specifically, one with the `AxisIPCamera` capability. |
    | Properties.ServerUsername | Enter the username of the configured "service" user on the camera |
    | Properties.ServerPassword | Enter the password of the configured "service" user on the camera |
-   | Properties.ServerUseSsl | Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. This should always be "True" |
+   | Properties.ServerUseSsl | Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. |
+   | Properties.BypassTlsValidation | If true and 'Use SSL' is enabled, TLS certificate validation is skipped when connecting to the camera. Has no effect when 'Use SSL' is false. Only enable this when the camera's certificate cannot be trusted by the orchestrator server. |
 
 3. **Import the CSV file to create the certificate stores**
 
@@ -386,48 +396,75 @@ There are five (5) possible options:
 
 ## Device Onboarding
 
-The AXIS IP Camera Orchestrator Extension *always* connects to an AXIS IP Network Camera via HTTPS, regardless of how the **Use SSL** option on the certificate store is configured. This ensures that the orchestrator always validates the camera's certificate against the configured trust before proceeding.
+Cameras are typically provisioned with a self-signed or otherwise untrusted device identity certificate. The
+**Use SSL** and **Bypass TLS Validation** certificate store properties together determine what's required to
+connect successfully:
 
-All network cameras come pre-loaded with one (1) or more device ID certificates, and one of these certificates is configured on the camera to be provided in the TLS handshake
-to the client during an HTTPS request.
+| Use SSL | Bypass TLS Validation | Behavior |
+| --- | --- | --- |
+| `False` | *(any)* | Connects over plain HTTP. There is no TLS handshake, so certificate trust does not apply, and **Bypass TLS Validation** has no effect either way. |
+| `True` | `True` | Connects over HTTPS but skips certificate validation entirely - any certificate is accepted, including the camera's untrusted factory certificate. |
+| `True` | `False` | Connects over HTTPS and validates the certificate like any other TLS connection - see below for what's required to pass. |
 
-The orchestrator will not trust the device ID certificate, and will therefore deny the session to the camera.
+> [!WARNING]
+> It is highly recommended to keep **Use SSL** enabled. Plain HTTP sends credentials and certificate data to
+> the camera unencrypted, and is only intended as a fallback for cameras or networks that cannot support HTTPS.
 
-To trust the device ID certificate, you must create a custom trust and add the root and intermediate CA certificates from the AXIS PKI chain to it.
+> [!TIP]
+> **AXIS Device ID CA certificates:** https://www.axis.com/support/public-key-infrastructure-repository
 
-### Steps to Create the Custom Trust
+All network cameras come pre-loaded with one (1) or more device ID certificates - potentially using different
+key algorithms (e.g. RSA, ECC) - and one of these is configured on the camera to be presented during the TLS
+handshake to the client during an HTTPS request.
 
-1. Once the DLLs from GitHub are installed, create two (2) files in the sub-directory called "Files" with the below names (*Note: The "Files" folder should already exist):
-   * **Axis.Root**
-   * **Axis.Intermediate**
-
-* **Default Path on Windows** - `C:\Program Files\Keyfactor\Keyfactor Orchestrator\extensions\[Axis IP Camera orchestrator extension folder]\Files`
-* **Default Path on Linux** - `/opt/keyfactor/orchestrator/extensions/[Axis IP Camera orchestrator extension folder]/Files`
-2. Copy and paste the PEM contents of the AXIS PKI root for the device ID cert configured for the HTTP server into the **Axis.Root** file
-3. Copy and paste the PEM contents of the AXIS PKI intermediate for the device ID configured for the HTTP server into the **Axis.Intermediate** file
-
-\* AXIS Device ID CA certificates can be found here: https://www.axis.com/support/public-key-infrastructure-repository
-
-> [!IMPORTANT]
-> You will want to replace the device ID certificate bound to the HTTP server with a CA-signed certificate. To do this,
-> you will need to schedule an ODKG job and select **HTTPS** as the Certificate Usage.
-
-> [!IMPORTANT]
-> After associating a CA-signed certificate with the HTTP server via the ODKG job, you need to make sure the orchestrator server trusts the HTTPS certificate.
-> Therefore, you will need to install the full CA chain - including root and intermediate certificates - into the orchestrator server's local
-> certificate store.
+When **Use SSL** is `True` and **Bypass TLS Validation** is `False`, install the issuing intermediate and root
+CAs (linked above) for whichever device ID certificate is currently bound to the HTTP server into the
+orchestrator server's local trust store so that standard TLS validation succeeds. For instructions on
+replacing the camera's factory certificate with one enrolled from the customer's own PKI, see
+[Replacing the Factory Device ID Certificate](#replacing-the-factory-device-id-certificate) below.
 
 ### Camera-Specific Trust Validation
 
-After the device ID is verified against the custom trust, the **Store Path** value of the certificate store will be compared against the SERIALNUMBER Subject DN attribute of the device ID certificate.
-These values must match or the session will be denied.
+This only applies when **Use SSL** is `True` and **Bypass TLS Validation** is `False`.
+
+The camera's factory certificate's CN/SAN reflects whatever hostname or IP it was given at manufacture, not
+the camera's current network address - so connecting to the camera at its real, current address normally
+fails with a standard TLS name mismatch, even once the issuing CAs above are trusted. To resolve this for the
+factory certificate specifically:
+
+- Enter the camera's serial number (shown in the camera's web UI) as the certificate store's **Store Path**
+  value.
+- If a name mismatch is the *only* problem (the certificate otherwise chains to a trusted CA), the orchestrator
+  checks the certificate's `SERIALNUMBER` Subject DN attribute - a separate field that identifies the physical
+  device regardless of network address - against that Store Path value. If they match, the mismatch is waived.
+- This doesn't change anything about trust itself: a certificate that doesn't chain to a trusted CA still
+  fails, regardless of Store Path.
 
 > [!NOTE]
-> This SERIALNUMBER validation only applies while the camera's factory device ID certificate remains bound to the HTTP server. Once a new certificate is enrolled via an ODKG job using the customer's PKI, the camera presents that certificate instead, and the orchestrator falls back to standard TLS certificate chain validation — requiring the customer's root and intermediate CA certificates to be installed in the orchestrator server's local certificate store.
+> This check only compares the certificate's `SERIALNUMBER` against the recorded Store Path value - it does
+> not verify which CA issued the certificate. It is not intended to distinguish the camera's factory
+> certificate from a customer-issued certificate that happens to carry the same value, for example due to a
+> misconfigured enrollment.
+
+> [!NOTE]
+> This only applies while the camera presents its factory certificate. Once a customer-PKI certificate is
+> enrolled via ODKG, standard TLS validation against the store's actual Client Machine value takes over, as
+> described above.
+
+> [!IMPORTANT]
+> Inventory, Reenrollment (ODKG), and Management jobs all connect to the camera using the same HTTP/HTTPS
+> connection, so **Bypass TLS Validation** affects all of them.
 
 ## Enrollment Behavior
 
 The following enrollment behaviors are specific to ODKG (On Device Key Generation) — also known as Reenrollment — on AXIS cameras, and should be considered when designing certificate automation workflows.
+
+### Replacing the Factory Device ID Certificate
+
+To move the camera off its factory certificate, schedule an ODKG job and select **HTTPS** as the Certificate Usage. This enrolls a new certificate issued from the customer's own PKI and binds it to the camera's HTTP server.
+
+> [!IMPORTANT]
+> After the ODKG job completes, make sure the orchestrator server trusts the newly enrolled certificate by installing its issuing intermediate and root CAs into the orchestrator server's local trust store. These are typically different CAs than the ones used for the camera's factory certificate.
 
 ### Alias Versioning
 
@@ -512,6 +549,10 @@ If a 401 Unauthorized response is encountered:
 Axis identified a memory leak in older firmware releases that may cause device keystore storage to become exhausted over time. If keystore storage issues are observed, verify that the device is running the latest supported firmware version.
 
 ## Release Notes
+
+**1.2.0**
+- Standardized device onboarding and TLS trust validation: `Use SSL` now actually controls whether the camera connection uses HTTP or HTTPS, a new `Bypass TLS Validation` certificate store property can skip certificate validation entirely, and the camera's factory certificate is now validated against the orchestrator server's standard local trust store instead of a bundled custom trust.
+- Fixed Inventory reporting Success with zero certificates when the camera returned none.
 
 **1.1.0**
 - Improved exception handling to be more robust for HTTP client initialization.
