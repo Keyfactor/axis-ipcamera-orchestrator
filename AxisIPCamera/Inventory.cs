@@ -47,7 +47,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             {
                 _logger.MethodEntry();
                 
-                _logger.LogTrace($"Begin Inventory for Client Machine {config.CertificateStoreDetails.ClientMachine}...");
+                _logger.LogTrace($"Beginning Inventory for Client Machine {config.CertificateStoreDetails.ClientMachine}...");
                 string jsonConfig = JsonConvert.SerializeObject(config, Formatting.Indented);
                 _logger.LogDebug($"Inventory Config: {jsonConfig.Replace(config.ServerPassword,"**********")}");
                 
