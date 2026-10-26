@@ -53,6 +53,8 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
 
                 if (nameMismatch && !chainErrors && !certNotAvailable && !string.IsNullOrWhiteSpace(serialNumber))
                 {
+                    logger.LogTrace($"Hostname/SAN mismatch detected with no other chain errors; checking certificate's SERIALNUMBER against the recorded Store Path value '{serialNumber}'.");
+
                     if (MatchesSerialNumber(cert, serialNumber, logger))
                     {
                         logger.LogDebug($"Certificate SERIALNUMBER matches the recorded Store Path value '{serialNumber}' - treating the hostname mismatch as expected for the camera's factory certificate.");
@@ -88,7 +90,6 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Helpers
 
                 if (sslErrors)
                 {
-                    errorContext.Insert(0, "TLS Cert validation failed!!");
                     return false;
                 }
 

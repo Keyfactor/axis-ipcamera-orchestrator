@@ -12,6 +12,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using Microsoft.Extensions.Logging;
@@ -75,20 +76,32 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
                 // ServerUseSsl is a reserved custom store property name that the SDK binds directly onto
                 // config.UseSSL, so it's read from there rather than parsed out of the Properties JSON blob.
-                // BypassTlsValidation is not a reserved name, so it still has to be parsed manually.
+                // BypassTlsValidation, HttpPort, and HttpsPort are not reserved names, so they still have to be
+                // parsed manually.
                 bool serverUseSsl = config.UseSSL;
 
-                bool bypassTlsValidation = false;
-                if (!string.IsNullOrWhiteSpace(store.Properties))
+                JObject storeProperties = string.IsNullOrWhiteSpace(store.Properties)
+                    ? null
+                    : JObject.Parse(store.Properties);
+                bool bypassTlsValidation = storeProperties?["BypassTlsValidation"]?.Value<bool>() ?? false;
+
+                // A port set for the active protocol replaces any port already in Client Machine;
+                // otherwise Client Machine is used as-is.
+                var host = store.ClientMachine;
+                var portOverride = ParsePortProperty(storeProperties, serverUseSsl ? "HttpsPort" : "HttpPort");
+                if (portOverride.HasValue)
                 {
-                    var storeProperties = JObject.Parse(store.Properties);
-                    bypassTlsValidation = storeProperties["BypassTlsValidation"]?.Value<bool>() ?? false;
+                    host = Regex.Replace(host, @":\d+$", "") + ":" + portOverride.Value;
                 }
 
                 var protocol = serverUseSsl ? "https" : "http";
-                var baseRestClientUrl = $"{protocol}://{store.ClientMachine}";
+                var baseRestClientUrl = $"{protocol}://{host}";
 
                 Logger.LogDebug($"Base HTTP client URL: {baseRestClientUrl}");
+                if (!serverUseSsl)
+                {
+                    Logger.LogInformation($"Use SSL is false; connecting to the camera over plain HTTP ({baseRestClientUrl}).");
+                }
 
                 // Retrieve username and password credentials to connect to the device
                 Logger.LogTrace("Adding device credentials to the HTTP client options...");
@@ -146,13 +159,14 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
                 Logger.LogTrace($"Connection to the device response status code: {response.StatusCode}");
                 
-                // Build the list of SSL certificate errors and log to the console
+                // Summary line, then each distinct error numbered
                 StringBuilder errorSb = new StringBuilder();
                 if (errorContext.HasErrors)
                 {
-                    foreach (var error in errorContext.Errors)
+                    errorSb.AppendLine("TLS Cert validation failed!!");
+                    for (int i = 0; i < errorContext.Errors.Count; i++)
                     {
-                        errorSb.AppendLine(error);
+                        errorSb.AppendLine($"{i + 1}. {errorContext.Errors[i]}");
                     }
 
                     throw new DeviceCertValidationException(
@@ -177,9 +191,11 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
 
                 if (!response.IsSuccessful)
                 {
-                    throw new Exception(response.ErrorMessage);
+                    var decodedStatus = DecodeHttpStatus(response);
+                    Logger.LogError($"Connection to the device was unsuccessful - HTTP Response: {decodedStatus}");
+                    throw new Exception($"Connection to the device was unsuccessful - HTTP Response: {decodedStatus}");
                 }
-                // End ADR-0001 
+                // End ADR-0001
 
                 Logger.LogTrace("Completed Initialization of Axis IP Camera HTTP Client");
                 Logger.LogTrace("Leaving AxisHttpClient constructor.");
@@ -648,9 +664,23 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 
                 var deleteCertResource = $"{Constants.RestApiEntryPoint}/certificates/{alias}";
                 var httpResponse = ExecuteHttp(deleteCertResource, Method.Delete);
+
+                // Code 5 ("Certificate is in use") comes back as an HTTP 400 with an error body. It's expected
+                // when the certificate being cleaned up wasn't created by this integration (e.g. the factory
+                // identity certificate, which AXIS doesn't allow removing), and Reenrollment.cs has already
+                // confirmed it isn't bound to another usage. Check it first so it's logged without a Warning.
+                var certInUse = false;
+                if (httpResponse != null && !string.IsNullOrEmpty(httpResponse.Content))
+                {
+                    certInUse = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content)?.ErrorInfo?.Code == 5;
+                    if (certInUse)
+                    {
+                        Logger.LogDebug($"Certificate '{alias}' could not be removed because it is in use (Code: 5) - expected when the certificate being cleaned up was not created by this integration (e.g. the camera's factory identity certificate).");
+                    }
+                }
                 
                 // Decode the HTTP response if failed
-                if (httpResponse is { IsSuccessful: false })
+                if (!certInUse && httpResponse is { IsSuccessful: false })
                 {
                     var decodedStatus = DecodeHttpStatus(httpResponse);
                     
@@ -667,7 +697,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
                 else
                 {
                     RestApiResponse apiResponse = JsonConvert.DeserializeObject<RestApiResponse>(httpResponse.Content);
-                    if (apiResponse.Status != Constants.Status.Success)
+                    if (!certInUse && apiResponse.Status != Constants.Status.Success)
                     {
                         ErrorData error = JsonConvert.DeserializeObject<ErrorData>(httpResponse.Content);
                         Logger.LogWarning($"API error encountered - {error.ErrorInfo.Message} - (Code: {error.ErrorInfo.Code})");
@@ -1212,6 +1242,22 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera.Client
         /// </summary>
         /// <param name="httpResponse"></param>
         /// <returns>Human-readable representation of the HTTP status code</returns>
+        private static int? ParsePortProperty(JObject properties, string propertyName)
+        {
+            var raw = properties?[propertyName]?.Value<string>();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            if (!int.TryParse(raw.Trim(), out var port) || port < 1 || port > 65535)
+            {
+                throw new Exception($"The value '{raw}' for '{propertyName}' is not a valid port number (1-65535).");
+            }
+
+            return port;
+        }
+
         private string DecodeHttpStatus(RestResponse httpResponse)
         {
             Logger.MethodEntry();
