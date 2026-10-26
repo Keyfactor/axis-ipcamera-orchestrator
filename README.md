@@ -82,7 +82,7 @@ Has not been tested with any other model or firmware version.
 
 ### Authentication
 
-The Axis IP Camera Orchestrator Extension uses .NET HttpClientHandler credential negotiation when connecting to Axis devices over HTTPS.
+The Axis IP Camera Orchestrator Extension uses .NET HttpClientHandler credential negotiation when connecting to Axis devices over HTTP or HTTPS.
 This allows the orchestrator to automatically negotiate the authentication mechanism required by the camera.
 The orchestrator has been validated against Axis cameras configured with:
 
@@ -195,6 +195,8 @@ the Keyfactor Command Portal
    | ServerPassword | Server Password | Enter the password of the configured "service" user on the camera | Secret |  | ✅ Checked |
    | ServerUseSsl | Use SSL | Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. | Bool | true | ✅ Checked |
    | BypassTlsValidation | Bypass TLS Validation | If true and 'Use SSL' is enabled, TLS certificate validation is skipped when connecting to the camera. Has no effect when 'Use SSL' is false. Only enable this when the camera's certificate cannot be trusted by the orchestrator server. | Bool | false | ✅ Checked |
+   | HttpPort | HTTP Port | Optional. Port to connect to when 'Use SSL' is false (HTTP). Leave blank to use the port in Client Machine, or 80 if it has none. | String |  | 🔲 Unchecked |
+   | HttpsPort | HTTPS Port | Optional. Port to connect to when 'Use SSL' is true (HTTPS). Leave blank to use the port in Client Machine, or 443 if it has none. | String |  | 🔲 Unchecked |
 
    The Custom Fields tab should look like this:
 
@@ -228,6 +230,20 @@ the Keyfactor Command Portal
 
    ![AxisIPCamera Custom Field - BypassTlsValidation](docsource/images/AxisIPCamera-custom-field-BypassTlsValidation-dialog.svg)
    ![AxisIPCamera Custom Field - BypassTlsValidation](docsource/images/AxisIPCamera-custom-field-BypassTlsValidation-validation-options-dialog.svg)
+
+
+   ###### HTTP Port
+   Optional. Port to connect to when 'Use SSL' is false (HTTP). Leave blank to use the port in Client Machine, or 80 if it has none.
+
+   ![AxisIPCamera Custom Field - HttpPort](docsource/images/AxisIPCamera-custom-field-HttpPort-dialog.svg)
+   ![AxisIPCamera Custom Field - HttpPort](docsource/images/AxisIPCamera-custom-field-HttpPort-validation-options-dialog.svg)
+
+
+   ###### HTTPS Port
+   Optional. Port to connect to when 'Use SSL' is true (HTTPS). Leave blank to use the port in Client Machine, or 443 if it has none.
+
+   ![AxisIPCamera Custom Field - HttpsPort](docsource/images/AxisIPCamera-custom-field-HttpsPort-dialog.svg)
+   ![AxisIPCamera Custom Field - HttpsPort](docsource/images/AxisIPCamera-custom-field-HttpsPort-validation-options-dialog.svg)
 
 
    ##### Entry Parameters Tab
@@ -315,6 +331,8 @@ the Keyfactor Command Portal
    | ServerPassword | Enter the password of the configured "service" user on the camera |
    | ServerUseSsl | Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. |
    | BypassTlsValidation | If true and 'Use SSL' is enabled, TLS certificate validation is skipped when connecting to the camera. Has no effect when 'Use SSL' is false. Only enable this when the camera's certificate cannot be trusted by the orchestrator server. |
+   | HttpPort | Optional. Port to connect to when 'Use SSL' is false (HTTP). Leave blank to use the port in Client Machine, or 80 if it has none. |
+   | HttpsPort | Optional. Port to connect to when 'Use SSL' is true (HTTPS). Leave blank to use the port in Client Machine, or 443 if it has none. |
 
 </details>
 
@@ -342,6 +360,8 @@ the Keyfactor Command Portal
    | Properties.ServerPassword | Enter the password of the configured "service" user on the camera |
    | Properties.ServerUseSsl | Select True or False depending on if SSL (HTTPS) should be used to communicate with the camera. |
    | Properties.BypassTlsValidation | If true and 'Use SSL' is enabled, TLS certificate validation is skipped when connecting to the camera. Has no effect when 'Use SSL' is false. Only enable this when the camera's certificate cannot be trusted by the orchestrator server. |
+   | Properties.HttpPort | Optional. Port to connect to when 'Use SSL' is false (HTTP). Leave blank to use the port in Client Machine, or 80 if it has none. |
+   | Properties.HttpsPort | Optional. Port to connect to when 'Use SSL' is true (HTTPS). Leave blank to use the port in Client Machine, or 443 if it has none. |
 
 3. **Import the CSV file to create the certificate stores**
 
@@ -410,6 +430,23 @@ connect successfully:
 > It is highly recommended to keep **Use SSL** enabled. Plain HTTP sends credentials and certificate data to
 > the camera unencrypted, and is only intended as a fallback for cameras or networks that cannot support HTTPS.
 
+> [!NOTE]
+> **Use SSL = False** requires the camera itself to also be configured to accept plain HTTP connections. AXIS
+> cameras can independently be restricted to HTTPS-only access; if so, connections will fail regardless of this
+> setting until the camera's own network settings are changed to allow HTTP.
+
+> [!NOTE]
+> The orchestrator connects on port 80 (HTTP) or 443 (HTTPS), unless **Client Machine** includes a port (e.g.
+> `10.0.0.5:8443`). If the camera uses other ports, set **HTTPS Port** (used when **Use SSL** is `True`) and/or
+> **HTTP Port** (used when **Use SSL** is `False`). A port set here replaces any port in **Client Machine**. Set
+> both if you switch **Use SSL** between `True` and `False`.
+
+> [!IMPORTANT]
+> **Upgrading to 1.2.0:** before this version, **Use SSL** was ignored and the extension always connected over
+> HTTPS. Stores with **Use SSL** set to `False` now connect over plain HTTP, and since **Client Machine** on
+> existing stores usually holds the HTTPS port (or none), those connections will fail. Set **Use SSL** to `True`
+> on these stores, or set **HTTP Port** to the camera's HTTP port and make sure the camera accepts HTTP.
+
 > [!TIP]
 > **AXIS Device ID CA certificates:** https://www.axis.com/support/public-key-infrastructure-repository
 
@@ -466,6 +503,9 @@ To move the camera off its factory certificate, schedule an ODKG job and select 
 > [!IMPORTANT]
 > After the ODKG job completes, make sure the orchestrator server trusts the newly enrolled certificate by installing its issuing intermediate and root CAs into the orchestrator server's local trust store. These are typically different CAs than the ones used for the camera's factory certificate.
 
+> [!WARNING]
+> An ODKG job with `HTTPS` as the `Certificate Usage` also sets the camera's web server to accept HTTPS only. If you use **Use SSL** = `False`, re-enable HTTP in the camera's network settings after enrolling. Enabling HTTP is not generally recommended, since credentials and certificate data are then sent to the camera unencrypted.
+
 ### Alias Versioning
 
 AXIS cameras require each Alias to be unique, and each Alias is tightly coupled with the private key used to generate its certificate. Because of this, certificates cannot be reenrolled in place by replacing the certificate and private key associated with an existing Alias.
@@ -479,11 +519,19 @@ where `yyMMddHHmm` represents the current UTC date and time.
 From an automation perspective, the same Alias can continue to be reused, as uniqueness is enforced by the integration.
 
 > [!NOTE]
-> As of v1.1.0, ODKG jobs automatically manage versioned Aliases. When reenrolling a certificate using the same Alias, the integration creates a new certificate using a versioned Alias and removes the previously enrolled certificate associated with the same base Alias.
+> As of v1.1.0, ODKG jobs automatically manage versioned Aliases. When reenrolling a certificate, the integration creates a new certificate using a versioned Alias, binds it to the selected `Certificate Usage`, and removes the certificate that was previously bound to that usage.
 >
-> Because AXIS cameras do not support in-place certificate replacement, a new versioned Alias is still created during reenrollment. The integration identifies and removes the previous certificate by matching the base Alias name and ignoring the timestamp suffix.
+> Because AXIS cameras do not support in-place certificate replacement, a new versioned Alias is always created during reenrollment. The previous certificate is identified by its binding to the Certificate Usage, not by its Alias name, so the Alias supplied in the job does not need to match it.
 >
-> If a new Alias is supplied during reenrollment, the original certificate (if one exists) associated with the selected `Certificate Usage` is **not** automatically removed from the camera. Because AXIS cameras have limited certificate and key storage capacity, users should periodically review and remove unused certificates through the AXIS Network Camera GUI.
+> ODKG jobs never remove certificates that are not bound to the selected `Certificate Usage`. Because AXIS cameras have limited certificate and key storage capacity, users should periodically review and remove unused certificates through the AXIS Network Camera GUI.
+
+> [!NOTE]
+> Before removing the previous certificate, the integration checks whether its Alias is still bound to a
+> *different* Certificate Usage (AXIS allows the same Alias to be assigned to multiple usages at once). If so,
+> it's left in place rather than removed. On the very first reenrollment of a given Certificate Usage, the
+> certificate being replaced is often the camera's untouched factory identity certificate, which AXIS does not
+> allow removing at all - this is also expected and does not produce a Warning. Only an unexpected removal
+> failure produces a Warning.
 
 #### Configuration Example
 
@@ -496,31 +544,38 @@ The following example demonstrates how Alias versioning behaves in an ODKG job c
 
 In this configuration:
 - The ODKG job generates a new identity certificate and assigns it a versioned Alias by appending a `_yyMMddHHmm` timestamp suffix, e.g. `https-cert_2508251200`
-- A later ODKG job using the same `https-cert` Alias and the same Certificate Usage creates another versioned Alias (e.g. `https-cert_2509031400`) and removes the certificate tied to the previous versioned Alias, matching on the base Alias name and ignoring the timestamp suffix
-- If a different Alias is supplied on a later job, the original certificate associated with the selected Certificate Usage is **not** automatically removed and must be cleaned up manually via the AXIS Network Camera GUI
+- A later ODKG job using the same `https-cert` Alias and the same Certificate Usage creates another versioned Alias (e.g. `https-cert_2509031400`) and removes the certificate that was previously bound to that Certificate Usage
+- If a different Alias is supplied on a later job, the new certificate uses that Alias (with its own timestamp suffix), and the certificate previously bound to the selected Certificate Usage is still removed
 
 Operational behavior:
 - The **Overwrite** setting has no effect on Alias or certificate behavior — AXIS cameras do not support in-place certificate replacement, so a new versioned Alias is always created regardless of how Overwrite is set
-- The base Alias name (excluding the timestamp suffix) is what the integration uses to identify and remove a previously enrolled certificate
+- The certificate bound to the selected Certificate Usage is what the integration removes after enrolling the new one, regardless of its Alias name
 
 ### Certificate Usage Considerations (Trust)
 
 > [!NOTE]
-> If an ODKG job is configured with `Trust` selected as the `Certificate Usage`, the job will return a warning indicating that the operation is not supported.
+> If an ODKG job is configured with `Trust` selected as the `Certificate Usage`, the job fails with a message indicating that ODKG is not supported for that usage.
 >
 > Trust CA certificates must be installed using a **Management - Add** job. These certificates establish trust for TLS connections initiated by the camera.
+
+### Certificate Usage Considerations (Other)
+
+> [!NOTE]
+> An ODKG job with `Other` selected as the `Certificate Usage` enrolls a certificate without binding it to a usage, so it can be assigned later in the AXIS Network Camera GUI. Because there is no bound certificate to replace, previously enrolled `Other` certificates are not removed automatically. AXIS cameras have limited certificate and key storage capacity, so review and remove unused certificates periodically through the AXIS Network Camera GUI.
 
 ### Subject Alternative Names (SANs)
 
 As of Keyfactor Command v25.4, Subject Alternative Names (SANs) can be specified for ODKG jobs. Support for passing SANs to the orchestrator also requires, at minimum, Keyfactor Universal Orchestrator v25.1.
 
-The AXIS IP Camera API only supports DNS and IP SAN types. Any other SAN types included in the ODKG job will be ignored and will not be added to the enrolled certificate.
+The AXIS camera's certificate management API only accepts DNS and IP SANs. Any other SAN types included in the ODKG job (for example email, URI, or UPN) are ignored and are not added to the enrolled certificate.
 
 > [!NOTE]
-> If SANs are not provided and the selected `Certificate Usage` is `HTTPS`, IP and DNS SANs are automatically added when enrolling a certificate associated with a new Alias:
+> If no supported SANs are provided (none at all, or only unsupported types) and the selected `Certificate Usage` is `HTTPS`, IP and DNS SANs are automatically added to avoid TLS name-mismatch errors:
 >
 > - **IP** = The Client Machine configured for the certificate store (excluding any port number)
 > - **DNS** = The Common Name (CN) specified in the certificate Subject DN
+>
+> This requires the Client Machine to be an IPv4 address and the Subject to include a CN; otherwise the job fails. Supply DNS or IP SANs explicitly to avoid this.
 
 ## Troubleshooting
 
@@ -551,8 +606,9 @@ Axis identified a memory leak in older firmware releases that may cause device k
 ## Release Notes
 
 **1.2.0**
-- Standardized device onboarding and TLS trust validation: `Use SSL` now actually controls whether the camera connection uses HTTP or HTTPS, a new `Bypass TLS Validation` certificate store property can skip certificate validation entirely, and the camera's factory certificate is now validated against the orchestrator server's standard local trust store instead of a bundled custom trust.
+- Standardized device onboarding and TLS trust validation: `Use SSL` now actually controls whether the camera connection uses HTTP or HTTPS, a new `Bypass TLS Validation` certificate store property can skip certificate validation entirely, and the camera's factory certificate is now validated against the orchestrator server's standard local trust store instead of a bundled custom trust. Optional `HTTP Port` and `HTTPS Port` properties support cameras on non-default ports.
 - Fixed Inventory reporting Success with zero certificates when the camera returned none.
+- ODKG no longer reports a Warning on a camera's first reenrollment when the camera's factory certificate can't be removed, or when using the `Other` Certificate Usage. Corrected the Alias Versioning documentation to match the existing cleanup behavior.
 
 **1.1.0**
 - Improved exception handling to be more robust for HTTP client initialization.

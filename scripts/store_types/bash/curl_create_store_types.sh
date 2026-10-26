@@ -70,6 +70,24 @@ curl -s -X POST "https://${KEYFACTOR_HOSTNAME}/${KEYFACTOR_API_PATH}/Certificate
       "DefaultValue": "false",
       "Required": true,
       "Description": "If true and 'Use SSL' is enabled, TLS certificate validation is skipped when connecting to the camera. Has no effect when 'Use SSL' is false. Only enable this when the camera's certificate cannot be trusted by the orchestrator server."
+    },
+    {
+      "Name": "HttpPort",
+      "DisplayName": "HTTP Port",
+      "Type": "String",
+      "DependsOn": "",
+      "DefaultValue": "",
+      "Required": false,
+      "Description": "Optional. Port to connect to when 'Use SSL' is false (HTTP). Leave blank to use the port in Client Machine, or 80 if it has none."
+    },
+    {
+      "Name": "HttpsPort",
+      "DisplayName": "HTTPS Port",
+      "Type": "String",
+      "DependsOn": "",
+      "DefaultValue": "",
+      "Required": false,
+      "Description": "Optional. Port to connect to when 'Use SSL' is true (HTTPS). Leave blank to use the port in Client Machine, or 443 if it has none."
     }
   ],
   "EntryParameters": [
