@@ -553,7 +553,7 @@ The following table shows how the Alias is handled in each scenario, using `new-
 | `Trust` | Not supported for ODKG jobs; the job fails | None |
 
 Operational behavior:
-- The **Overwrite** setting has no effect on Alias or certificate behavior — AXIS cameras do not support in-place certificate replacement, so a new versioned Alias is created regardless of how Overwrite is set
+- The **Overwrite** setting has no effect on Alias or certificate behavior — AXIS cameras do not support in-place certificate replacement, so the Alias handling in the table above applies regardless of how **Overwrite** is set
 - The certificate bound to the selected **Certificate Usage** is what the integration removes after enrolling the new one, regardless of its Alias name
 
 ### Certificate Usage Considerations (Trust)
