@@ -80,7 +80,7 @@
               "DependsOn": "",
               "DefaultValue": "",
               "Required": false,
-              "Description": "Optional. Port to connect to when 'Use SSL' is false (HTTP). Leave blank to use the port in Client Machine, or 80 if it has none."
+              "Description": "Optional. Port used to connect to the camera over HTTP, when 'Use SSL' is false. A port set here replaces any port in Client Machine. If blank, the port in Client Machine is used, or the default HTTP port (80) if Client Machine has no port."
             },
             {
               "Name": "HttpsPort",
@@ -89,7 +89,7 @@
               "DependsOn": "",
               "DefaultValue": "",
               "Required": false,
-              "Description": "Optional. Port to connect to when 'Use SSL' is true (HTTPS). Leave blank to use the port in Client Machine, or 443 if it has none."
+              "Description": "Optional. Port used to connect to the camera over HTTPS, when 'Use SSL' is true. A port set here replaces any port in Client Machine. If blank, the port in Client Machine is used, or the default HTTPS port (443) if Client Machine has no port."
             }
           ],
           "EntryParameters": [
