@@ -51,7 +51,7 @@ This workflow is completely automated in the AXIS IP Camera Orchestrator extensi
 1. Ability to remove identity certificates from the camera
 2. Ability to add identity certificates to the camera
 
-\* Certificates can be bound to the following usages: **HTTPS**, **IEEE802.X**, **MQTT**. Selecting **Other** enrolls a certificate without binding it to a usage, so it can be assigned later in the AXIS Network Camera GUI.
+\* Certificates can be bound to the following usages: `HTTPS`, `IEEE802.X`, `MQTT`. Selecting `Other` enrolls a certificate without binding it to a usage, so it can be assigned later in the AXIS Network Camera GUI.
 
 ## Compatibility
 
@@ -498,7 +498,7 @@ The following enrollment behaviors are specific to ODKG (On Device Key Generatio
 
 ### Replacing the Factory Device ID Certificate
 
-To move the camera off its factory certificate, schedule an ODKG job and select **HTTPS** as the **Certificate Usage**. This enrolls a new certificate issued from the customer's own PKI and binds it to the camera's web server for HTTPS.
+To move the camera off its factory certificate, schedule an ODKG job and select `HTTPS` as the **Certificate Usage**. This enrolls a new certificate issued from the customer's own PKI and binds it to the camera's web server for HTTPS.
 
 > [!IMPORTANT]
 > After the ODKG job completes, make sure the orchestrator server trusts the newly enrolled certificate by installing its issuing intermediate and root CAs into the orchestrator server's local trust store. These are typically different CAs than the ones used for the camera's factory certificate.
@@ -539,18 +539,18 @@ The following example demonstrates how Alias versioning behaves in an ODKG job c
 
 - **Store Path:** camera serial number, e.g. `0b7c3d2f9e8a`
 - **Overwrite:** `true` or `false` *(has no bearing on Alias or certificate behavior)*
-- **Alias:** `https-cert` *(the base Alias; the camera shows the versioned Alias with a timestamp suffix)*
+- **Alias:** `new-cert` *(the base Alias; the camera shows the versioned Alias with a timestamp suffix)*
 - **Certificate Usage:** any of `HTTPS`, `IEEE802.X`, `MQTT`, `Other` *(`Trust` is not supported for ODKG jobs — see [Certificate Usage Considerations (Trust)](#certificate-usage-considerations-trust) below)*
 
-The following table shows how the Alias is handled in each scenario, using `https-cert` as the supplied Alias:
+The following table shows how the Alias is handled in each scenario, using `new-cert` as the supplied Alias:
 
 | Scenario | Alias on the camera | Previous certificate |
 |---|---|---|
-| **HTTPS**, **IEEE802.X** or **MQTT**, with a certificate already bound to that **Certificate Usage** | Versioned with a `_yyMMddHHmm` timestamp suffix, e.g. `https-cert_2508251200`. A later job with the same Alias creates `https-cert_2509031400`. | Removed after the new certificate is bound, regardless of its Alias. Left in place if it is still bound to another **Certificate Usage**, or if the camera does not allow removing it (e.g. the factory device ID certificate). |
+| `HTTPS`, `IEEE802.X` or `MQTT`, with a certificate already bound to that **Certificate Usage** | Versioned with a `_yyMMddHHmm` timestamp suffix, e.g. `new-cert_2508251200`. A later job with the same Alias creates `new-cert_2509031400`. | Removed after the new certificate is bound, regardless of its Alias. Left in place if it is still bound to another **Certificate Usage**, or if the camera does not allow removing it (e.g. the factory device ID certificate). |
 | Same as above, but a different Alias is supplied than the bound certificate's | The supplied Alias with its own timestamp suffix | Removed, as above. The previous certificate is identified by its binding, not its Alias. |
-| **MQTT**, with nothing bound yet | The supplied Alias, as is (no suffix), because there is no existing certificate for it to conflict with. A later job with the same Alias finds it bound and versions the new Alias. | None to remove |
-| **Other** | Always versioned with a timestamp suffix. The integration can't look up what is bound for **Other**, so it can't tell whether the supplied Alias is already in use. A unique Alias avoids a conflict and lets the same Alias be reused in automated jobs. | Never removed. **Other** covers every certificate that isn't bound to HTTPS, IEEE802.X or MQTT. Such a certificate may be bound to something this integration doesn't manage, and there is no safe way to identify a "previous" one. Review and remove unused certificates in the AXIS Network Camera GUI. |
-| **Trust** | Not supported for ODKG jobs; the job fails | None |
+| `MQTT`, with nothing bound yet | The supplied Alias, as is (no suffix), because there is no existing certificate for it to conflict with. A later job with the same Alias finds it bound and versions the new Alias. | None to remove |
+| `Other` | Always versioned with a timestamp suffix. The integration can't look up what is bound for `Other`, so it can't tell whether the supplied Alias is already in use. A unique Alias avoids a conflict and lets the same Alias be reused in automated jobs. | Never removed. `Other` covers every certificate that isn't bound to `HTTPS`, `IEEE802.X` or `MQTT`. Such a certificate may be bound to something this integration doesn't manage, and there is no safe way to identify a "previous" one. Review and remove unused certificates in the AXIS Network Camera GUI. |
+| `Trust` | Not supported for ODKG jobs; the job fails | None |
 
 Operational behavior:
 - The **Overwrite** setting has no effect on Alias or certificate behavior — AXIS cameras do not support in-place certificate replacement, so a new versioned Alias is created regardless of how Overwrite is set
