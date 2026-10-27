@@ -11,7 +11,7 @@ It is expected that there be one (1) certificate store managed per AXIS network 
 
 1. User Account with \'Administrator\' privileges and password to access the camera
 2. Camera serial number
-3. Camera IP address (and likely port number)
+3. Camera IP address
 
 ## Certificate Usage
 
@@ -25,7 +25,7 @@ There are five (5) possible options:
 * **Other**
 
 1. HTTPS
-   - This certificate usage describes the certificate bound to the camera's HTTP web server for HTTPS communication (i.e. server certificate or SSL/TLS certificate).
+   - This certificate usage describes the certificate bound to the camera's web server and presented on HTTPS connections (i.e. server certificate or SSL/TLS certificate).
 2. IEEE802.X
    - This certificate usage describes the client certificate to authenticate the camera to a server using EAP-TLS. This client certificate
    is presented to the 802.1x radius server for authentication.
