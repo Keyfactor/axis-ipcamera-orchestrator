@@ -5,6 +5,8 @@ v1.2.0
 - feat(connection): Added optional `HTTP Port` (used when `Use SSL` is false) and `HTTPS Port` (used when `Use SSL` is true) certificate store properties; a port set replaces any port in `Client Machine`
 - fix(odkg): Reenrollment no longer reports a Warning when the previous certificate can't be deleted because the camera won't remove it (e.g. the factory device ID certificate on a first reenrollment); a previous certificate still bound to another Certificate Usage is now left in place instead of attempting deletion
 - fix(odkg): ODKG with Certificate Usage `Other` no longer reports a Warning; clearer errors when Command returns no certificate for the CSR and when the `Trust` usage is selected
+- fix(logging): TLS validation failures are reported as a numbered list, and HTTP error responses show the decoded status instead of a generic exception message
+- chore(docs): Added device onboarding, factory certificate replacement, and alias versioning documentation; corrected the description of which certificate is removed after reenrollment
 
 v1.1.0
 - fix(logging): Improved exception handling to be more robust for HTTP client initialization
