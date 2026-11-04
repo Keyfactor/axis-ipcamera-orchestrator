@@ -41,7 +41,7 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
             {
                 _logger.MethodEntry();
                 
-                _logger.LogTrace($"Begin Reenrollment for Client Machine {config.CertificateStoreDetails.ClientMachine}");
+                _logger.LogTrace($"Beginning Reenrollment for Client Machine {config.CertificateStoreDetails.ClientMachine}");
                 string jsonConfig = JsonConvert.SerializeObject(config, Formatting.Indented);
                 _logger.LogDebug($"Reenrollment Config: {jsonConfig.Replace(config.ServerPassword,"**********")}");
 
@@ -82,15 +82,25 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 if (certUsageEnum is Constants.CertificateUsage.Trust)
                 {
                     throw new Exception(
-                        "Reenrollment cannot be performed on a store when the certificate usage is marked as 'Trust' or 'Other'");
+                        "ODKG is not supported when the certificate usage is 'Trust'. Use a Management - Add job to install Trust certificates.");
                 }
                 
                 _logger.LogTrace("Create HTTPS client to connect to device");
                 var client = new AxisHttpClient(config, config.CertificateStoreDetails, _resolver);
 
                 // Get the existing alias name associated with the supplied cert usage
-                _logger.LogTrace($"Check '{certUsage}' binding for same alias");
-                var oldAlias = client.GetCertUsageBinding(Constants.GetCertUsageAsEnum(certUsage));
+                var oldAlias = "";
+                if (certUsageEnum == Constants.CertificateUsage.Other)
+                {
+                    // 'Other' isn't bound to anything on the camera, so there's no binding to look up
+                    _logger.LogDebug("Certificate usage 'Other' has no binding on the camera. The certificate will be enrolled without a binding and no previous certificate will be removed.");
+                    newAlias = CertificateName.CreateUniqueCertName(newAlias);
+                }
+                else
+                {
+                    _logger.LogTrace($"Check '{certUsage}' binding for same alias");
+                    oldAlias = client.GetCertUsageBinding(Constants.GetCertUsageAsEnum(certUsage));
+                }
                 var oldCertExists = false;
                 if (!string.IsNullOrEmpty(oldAlias))
                 {
@@ -175,6 +185,10 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 // Submit CSR to be signed
                 _logger.LogTrace("Submitting CSR to Command to enroll for signed certificate");
                 var x509Cert = submitReenrollment.Invoke(csr);
+                if (x509Cert == null)
+                {
+                    throw new Exception("No certificate was returned by Command for the submitted CSR. Check the Command and CA logs for the enrollment failure.");
+                }
                 
                 // Build PEM content
                 // ** NOTE: The static newline (\n) characters are required in the API request
@@ -189,20 +203,51 @@ namespace Keyfactor.Extensions.Orchestrator.AxisIPCamera
                 _logger.LogTrace($"Replacing cert '{newAlias}' with the following cert: " + pemCert);
                 client.ReplaceCertificate(newAlias,pemCert);
                     
-                _logger.LogTrace($"Setting '{certUsage}' binding to alias '{newAlias}'");
-                client.SetCertUsageBinding(newAlias,certUsageEnum);
+                if (certUsageEnum != Constants.CertificateUsage.Other)
+                {
+                    _logger.LogTrace($"Setting '{certUsage}' binding to alias '{newAlias}'");
+                    client.SetCertUsageBinding(newAlias,certUsageEnum);
+                }
                     
-                // Perform unused certificate cleanup --- 
-                // 1) If a bound alias exists, delete the bound alias
+                // Perform unused certificate cleanup ---
+                // 1) If a bound alias exists, delete the bound alias - but only if it isn't still bound to a
+                // DIFFERENT certificate usage. AXIS allows the same alias to be assigned to multiple usages
+                // simultaneously, and rebinding this usage away from it (above) doesn't affect any other
+                // usage it may still be serving.
                 if (oldCertExists)
                 {
-                    _logger.LogTrace($"Removing certificate and private key associated with alias '{oldAlias}'");
-                    var result = client.RemoveCertificate(oldAlias);
-
-                    if (result.Status == HttpStatus.Warning)
+                    _logger.LogTrace($"Checking whether alias '{oldAlias}' is still bound to any other certificate usage before removing it...");
+                    var stillBoundElsewhere = false;
+                    foreach (var otherUsage in new[]
+                             {
+                                 Constants.CertificateUsage.Https, Constants.CertificateUsage.IEEE,
+                                 Constants.CertificateUsage.MQTT
+                             })
                     {
-                        return new JobResult() { Result = OrchestratorJobStatusJobResult.Warning, JobHistoryId = config.JobHistoryId, 
-                            FailureMessage = $"Reenrollment Job Had Warnings - Refer to logs for more detailed information." };
+                        if (otherUsage == certUsageEnum)
+                        {
+                            continue;
+                        }
+
+                        if (string.Equals(client.GetCertUsageBinding(otherUsage), oldAlias, StringComparison.Ordinal))
+                        {
+                            stillBoundElsewhere = true;
+                            _logger.LogDebug($"Alias '{oldAlias}' is still bound to certificate usage '{otherUsage}' - not attempting removal.");
+                            break;
+                        }
+                    }
+
+                    if (!stillBoundElsewhere)
+                    {
+                        _logger.LogDebug($"Alias '{oldAlias}' is not bound to any other certificate usage.");
+                        _logger.LogTrace($"Removing certificate and private key associated with alias '{oldAlias}'");
+                        var result = client.RemoveCertificate(oldAlias);
+
+                        if (result.Status == HttpStatus.Warning)
+                        {
+                            return new JobResult() { Result = OrchestratorJobStatusJobResult.Warning, JobHistoryId = config.JobHistoryId,
+                                FailureMessage = $"Reenrollment Job Had Warnings - Refer to logs for more detailed information." };
+                        }
                     }
                 }
             }

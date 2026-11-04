@@ -6,7 +6,7 @@
 	<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 	<ImplicitUsings>disable</ImplicitUsings>
 	<RootNamespace>Keyfactor.Extensions.Orchestrator.AxisIPCamera</RootNamespace>
-    <FileVersion>1.1.0</FileVersion>
+    <FileVersion>1.2.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

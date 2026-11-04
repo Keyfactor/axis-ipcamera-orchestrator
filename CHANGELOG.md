@@ -1,3 +1,13 @@
+v1.2.0
+- feat(tls): `Use SSL` now controls HTTP vs HTTPS; added `Bypass TLS Validation` certificate store property to skip certificate validation when using HTTPS
+- fix(tls): Replaced custom Axis.Root/Axis.Intermediate chain-pinning with standard local trust-store validation; camera's `SERIALNUMBER` is matched against `Store Path` only on a hostname/SAN mismatch against an otherwise-trusted chain, with a specific error message on mismatch
+- fix(inventory): Fixed Inventory reporting Success with zero certificates when the camera returned none
+- feat(connection): Added optional `HTTP Port` (used when `Use SSL` is false) and `HTTPS Port` (used when `Use SSL` is true) certificate store properties; a port set replaces any port in `Client Machine`
+- fix(odkg): Reenrollment no longer reports a Warning when the previous certificate can't be deleted because the camera won't remove it (e.g. the factory device ID certificate on a first reenrollment); a previous certificate still bound to another Certificate Usage is now left in place instead of attempting deletion
+- fix(odkg): ODKG with Certificate Usage `Other` no longer reports a Warning; clearer errors when Command returns no certificate for the CSR and when the `Trust` usage is selected
+- fix(logging): TLS validation failures are reported as a numbered list, and HTTP error responses show the decoded status instead of a generic exception message
+- chore(docs): Added device onboarding, factory certificate replacement, and alias versioning documentation; corrected the description of which certificate is removed after reenrollment
+
 v1.1.0
 - fix(logging): Improved exception handling to be more robust for HTTP client initialization
 - fix(auth): Implemented .NET native credential negotiation to support both Basic & Digest auth policies
